@@ -12,17 +12,10 @@ def main():
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
 
-    # 1. Инициализируем менеджер конфигурации
     config = ConfigManager()
-
-    # 2. Получаем пути из конфигурации
     storage_path = config.get_storage_path()
     paths_to_watch = config.get_watched_paths()
 
-    # --------------------------------------------------------------------------
-    # ВРЕМЕННЫЙ КОД: Если список папок пуст (первый запуск),
-    # добавляем Рабочий стол по умолчанию и показываем сообщение.
-    # В будущем это будет делаться в окне настроек.
     if not paths_to_watch:
         desktop_path = str(Path.home() / "Desktop")
         paths_to_watch.append(desktop_path)
@@ -35,9 +28,7 @@ def main():
             "По умолчанию включено отслеживание вашего Рабочего стола. "
             "Вы сможете изменить отслеживаемые папки в настройках."
         )
-    # --------------------------------------------------------------------------
 
-    # 3. Проверяем, что папки для отслеживания существуют
     valid_paths = []
     for path in paths_to_watch:
         if Path(path).exists():
@@ -52,11 +43,13 @@ def main():
             "Не найдено ни одной существующей папки для отслеживания.\n"
             "Пожалуйста, добавьте папки в настройках."
         )
-        # TODO: Открыть окно настроек вместо выхода
         return 1
 
-    # 4. Создаем и показываем иконку в трее, передавая ей конфигурацию
-    tray_icon = TrayIcon(storage_path=storage_path, paths_to_watch=valid_paths)
+    tray_icon = TrayIcon(
+        config_manager=config, 
+        storage_path=storage_path, 
+        paths_to_watch=valid_paths
+    )
     tray_icon.show()
 
     return app.exec()

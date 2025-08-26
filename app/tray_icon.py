@@ -7,10 +7,12 @@ from PySide6.QtCore import Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
+from app.config_manager import ConfigManager
 from app.file_watcher import FileWatcher
 from app.history_manager import HistoryManager
 from app.icon_generator import IconGenerator
 from app.ui.main_window import HistoryWindow
+from app.ui.settings_window import SettingsWindow
 
 
 class TrayIcon(QSystemTrayIcon):
@@ -18,11 +20,12 @@ class TrayIcon(QSystemTrayIcon):
     Класс для управления иконкой приложения в системном трее.
     Является главным координатором, управляющим всеми сервисами.
     """
-    def __init__(self, storage_path: Path, paths_to_watch: List[str], parent=None):
+    def __init__(self, config_manager: ConfigManager, storage_path: Path, paths_to_watch: List[str], parent=None):
         super().__init__(parent)
         
-        # Переменная для хранения единственного экземпляра окна
+        self.config_manager = config_manager
         self.history_window = None
+        self.settings_window = None
 
         # 1. Инициализируем сервисы
         self.icon_generator = IconGenerator()
@@ -52,12 +55,16 @@ class TrayIcon(QSystemTrayIcon):
 
     def _create_actions(self):
         """Создает и настраивает действия (пункты) для контекстного меню."""
-        # --- Действие "Открыть историю" ---
         self.history_action = QAction("Открыть историю версий", self)
         self.history_action.triggered.connect(self._open_history_window)
         self.menu.addAction(self.history_action)
+        
+        self.settings_action = QAction("Настройки", self)
+        self.settings_action.triggered.connect(self._open_settings_window)
+        self.menu.addAction(self.settings_action)
 
-        # --- Действие "Пауза/Возобновить" ---
+        self.menu.addSeparator()
+
         self.toggle_watch_action = QAction("Приостановить отслеживание", self)
         self.toggle_watch_action.setCheckable(True)
         self.toggle_watch_action.triggered.connect(self._on_toggle_watch)
@@ -66,7 +73,6 @@ class TrayIcon(QSystemTrayIcon):
 
         self.menu.addSeparator()
 
-        # --- Действие "Выход" ---
         self.quit_action = QAction("Выход", self)
         self.quit_action.triggered.connect(QApplication.instance().quit)
         self.menu.addAction(self.quit_action)
@@ -74,15 +80,25 @@ class TrayIcon(QSystemTrayIcon):
     def _open_history_window(self):
         """Создает (если нужно) и показывает окно истории."""
         if self.history_window is None:
-            # Окно создается только один раз при первом вызове
             self.history_window = HistoryWindow(history_manager=self.history_manager)
             self.history_manager.file_list_updated.connect(self.history_window.refresh_file_list)
             self.history_manager.version_added.connect(self.history_window.refresh_version_list_if_selected)
 
-        # Показываем окно и делаем его активным
         self.history_window.show()
         self.history_window.activateWindow()
-        self.history_window.raise_() # Для macOS и некоторых оконных менеджеров Linux
+        self.history_window.raise_()
+
+    def _open_settings_window(self):
+        """Создает (если нужно) и показывает окно настроек."""
+        if self.settings_window is None:
+            self.settings_window = SettingsWindow(config_manager=self.config_manager)
+            self.settings_window.finished.connect(lambda: setattr(self, 'settings_window', None))
+
+        if not self.settings_window.isVisible():
+            self.settings_window.exec()
+        else:
+            self.settings_window.activateWindow()
+            self.settings_window.raise_()
 
     @Slot()
     def _on_scan_started(self):
