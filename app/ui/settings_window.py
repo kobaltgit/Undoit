@@ -5,7 +5,7 @@ from typing import List
 
 from PySide6.QtCore import (QEasingCurve, QPoint, QPointF, QPropertyAnimation,
                             Qt, Signal, Slot, Property)
-from PySide6.QtGui import QColor, QPainter, QPaintEvent, QIcon # <-- Добавлен импорт QIcon
+from PySide6.QtGui import QColor, QPainter, QPaintEvent, QIcon
 from PySide6.QtWidgets import (QComboBox, QDialog, QFileDialog, QGroupBox,
                                QHBoxLayout, QLabel, QListWidget,
                                QListWidgetItem, QPushButton, QVBoxLayout,
@@ -104,13 +104,21 @@ class Switch(QWidget):
 
 class SettingsWindow(QDialog):
     """Окно для управления настройками приложения."""
-    def __init__(self, config_manager: ConfigManager, app_icon: QIcon, parent=None): # <-- Добавлен app_icon
+    def __init__(self, config_manager: ConfigManager, app_icon: QIcon, parent=None):
         super().__init__(parent)
         self.config_manager = config_manager
 
         self.setWindowTitle("Backdraft - Настройки")
-        self.setWindowIcon(app_icon) # <-- Устанавливаем иконку окна
+        self.setWindowIcon(app_icon)
         self.setMinimumWidth(500)
+
+        # <-- НОВОЕ: Словари для прямого и обратного сопоставления
+        self._theme_display_to_key_map = {"Авто": "auto", "Светлая": "light", "Темная": "dark"}
+        self._theme_key_to_display_map = {v: k for k, v in self._theme_display_to_key_map.items()}
+
+        self._lang_display_to_key_map = {"Авто": "auto", "Русский": "ru", "English": "en"}
+        self._lang_key_to_display_map = {v: k for k, v in self._lang_display_to_key_map.items()}
+        # -->
 
         self._init_ui()
         self._load_settings()
@@ -153,13 +161,13 @@ class SettingsWindow(QDialog):
 
         theme_layout = QHBoxLayout()
         self.theme_combo = QComboBox()
-        self.theme_combo.addItems(["Авто", "Светлая", "Темная"])
+        self.theme_combo.addItems(list(self._theme_display_to_key_map.keys())) # <-- Используем ключи отображения
         theme_layout.addWidget(QLabel("Тема приложения:"))
         theme_layout.addWidget(self.theme_combo)
 
         lang_layout = QHBoxLayout()
         self.lang_combo = QComboBox()
-        self.lang_combo.addItems(["Авто", "Русский", "English"])
+        self.lang_combo.addItems(list(self._lang_display_to_key_map.keys())) # <-- Используем ключи отображения
         lang_layout.addWidget(QLabel("Язык интерфейса:"))
         lang_layout.addWidget(self.lang_combo)
 
@@ -180,11 +188,13 @@ class SettingsWindow(QDialog):
         self.startup_switch.toggled.connect(
             lambda checked: self.config_manager.set("launch_on_startup", checked)
         )
+        # <-- ИСПРАВЛЕНИЕ: Используем _theme_display_to_key_map для сохранения
         self.theme_combo.currentTextChanged.connect(
-            lambda text: self.config_manager.set("theme", text.lower())
+            lambda text: self.config_manager.set("theme", self._theme_display_to_key_map.get(text, "auto"))
         )
+        # <-- ИСПРАВЛЕНИЕ: Используем _lang_display_to_key_map для сохранения
         self.lang_combo.currentTextChanged.connect(
-            lambda text: self.config_manager.set("language", text.lower())
+            lambda text: self.config_manager.set("language", self._lang_display_to_key_map.get(text, "auto"))
         )
 
     def _load_settings(self):
@@ -200,13 +210,13 @@ class SettingsWindow(QDialog):
         self.startup_switch.setChecked(self.config_manager.get("launch_on_startup", False), animate=False)
 
         # Выпадающие списки
-        theme_map = {"auto": "Авто", "light": "Светлая", "dark": "Темная"}
+        # <-- ИСПРАВЛЕНИЕ: Используем _theme_key_to_display_map для загрузки
         current_theme_key = self.config_manager.get("theme", "auto")
-        self.theme_combo.setCurrentText(theme_map.get(current_theme_key, "Авто"))
+        self.theme_combo.setCurrentText(self._theme_key_to_display_map.get(current_theme_key, "Авто"))
 
-        lang_map = {"auto": "Авто", "ru": "Русский", "en": "English"}
+        # <-- ИСПРАВЛЕНИЕ: Используем _lang_key_to_display_map для загрузки
         current_lang_key = self.config_manager.get("language", "auto")
-        self.lang_combo.setCurrentText(lang_map.get(current_lang_key, "Авто"))
+        self.lang_combo.setCurrentText(self._lang_key_to_display_map.get(current_lang_key, "Авто"))
 
     def _update_buttons_state(self):
         """Обновляет состояние кнопок (вкл/выкл)."""

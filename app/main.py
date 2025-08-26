@@ -1,14 +1,15 @@
 # -*- coding: utf-8 -*-
 # Главный файл приложения. Создает QApplication и TrayIcon.
 import sys
-import os # <-- Добавлен импорт os
+import os
 from pathlib import Path
 from PySide6.QtWidgets import QApplication, QMessageBox
-from PySide6.QtGui import QIcon # <-- Добавлен импорт QIcon
+from PySide6.QtGui import QIcon
 
 from app.tray_icon import TrayIcon
 from app.config_manager import ConfigManager
-from app.icon_generator import IconGenerator # <-- Добавлен импорт IconGenerator
+from app.icon_generator import IconGenerator
+from app.theme_manager import ThemeManager # <-- Добавлен импорт ThemeManager
 
 
 # Вспомогательная функция для определения пути к ресурсам,
@@ -34,6 +35,9 @@ def main():
     config = ConfigManager()
     storage_path = config.get_storage_path()
     paths_to_watch = config.get_watched_paths()
+
+    # Инициализируем ThemeManager и применяем тему приложения
+    theme_manager = ThemeManager(config_manager=config, app=app) # <-- Инициализация ThemeManager
 
     # Инициализируем IconGenerator
     icon_generator = IconGenerator()
@@ -63,7 +67,6 @@ def main():
             "Backdraft готов к работе.\n\n"
             "По умолчанию включено отслеживание вашего Рабочего стола. "
             "Вы сможете изменить отслеживаемые папки в настройках."
-            # QMessageBox автоматически использует app.windowIcon()
         )
 
     valid_paths = []
@@ -79,7 +82,6 @@ def main():
             "Ошибка Backdraft",
             "Не найдено ни одной существующей папки для отслеживания.\n"
             "Пожалуйста, добавьте папки в настройках."
-            # QMessageBox автоматически использует app.windowIcon()
         )
         return 1
 
@@ -89,7 +91,7 @@ def main():
         paths_to_watch=valid_paths,
         app_name=APP_NAME,
         app_executable_path=APP_EXECUTABLE_PATH,
-        app_icon=app_icon # <-- Передача адаптивной иконки приложения
+        app_icon=app_icon
     )
     tray_icon.show()
 

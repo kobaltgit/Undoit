@@ -163,6 +163,6 @@ class IconGenerator:
 
         # Если outline_color_hex == '#FFFFFF', значит тема темная
         if outline_color_hex == '#FFFFFF':
-            return QIcon(_resource_path(dark_icon_path))
-        else:
             return QIcon(_resource_path(light_icon_path))
+        else:
+            return QIcon(_resource_path(dark_icon_path))
