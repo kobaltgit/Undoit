@@ -111,6 +111,42 @@ class HistoryManager(QObject):
 
         self._add_version_from_path(file_path, file_hash)
 
+    def get_all_tracked_files(self) -> List[tuple]:
+        """
+        Возвращает список всех отслеживаемых файлов из БД.
+        Сортирует по алфавиту для удобного отображения.
+        Возвращает: список кортежей [(id, original_path), ...]
+        """
+        cursor = self._db_connection.cursor()
+        cursor.execute(
+            "SELECT id, original_path FROM tracked_files ORDER BY original_path ASC"
+        )
+        return cursor.fetchall()
+    
+    def get_versions_for_file(self, file_id: int) -> List[tuple]:
+        """
+        Возвращает все сохраненные версии для указанного file_id.
+        Сортирует от новых к старым.
+        Возвращает: список кортежей [(timestamp, sha256_hash, file_size), ...]
+        """
+        cursor = self._db_connection.cursor()
+        cursor.execute("""
+            SELECT timestamp, sha256_hash, file_size
+            FROM versions
+            WHERE file_id = ?
+            ORDER BY timestamp DESC
+        """, (file_id,))
+        return cursor.fetchall()
+    
+    def get_object_path(self, sha256_hash: str) -> Path | None:
+        """
+        Возвращает путь к файлу-объекту в хранилище по его хешу.
+        """
+        object_path = self.objects_path / sha256_hash[:2] / sha256_hash[2:]
+        if object_path.exists():
+            return object_path
+        return None
+
     def _add_version_from_path(self, file_path: Path, precalculated_hash: str = None):
         """Внутренний метод для добавления версии файла в хранилище и БД."""
         file_hash = precalculated_hash or self._calculate_hash(file_path)
@@ -162,7 +198,7 @@ class HistoryManager(QObject):
                 sha256_hash TEXT NOT NULL, file_size INTEGER NOT NULL,
                 FOREIGN KEY (file_id) REFERENCES tracked_files (id)
             )""")
-        self._db_connection.commit()
+        self._db_connection.commit()    
 
     def close(self):
         if self._db_connection:

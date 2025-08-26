@@ -3,13 +3,14 @@
 from pathlib import Path
 from typing import List
 
+from PySide6.QtCore import Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
-from PySide6.QtCore import Slot
 
 from app.file_watcher import FileWatcher
 from app.history_manager import HistoryManager
 from app.icon_generator import IconGenerator
+from app.ui.main_window import HistoryWindow
 
 
 class TrayIcon(QSystemTrayIcon):
@@ -19,6 +20,9 @@ class TrayIcon(QSystemTrayIcon):
     """
     def __init__(self, storage_path: Path, paths_to_watch: List[str], parent=None):
         super().__init__(parent)
+        
+        # Переменная для хранения единственного экземпляра окна
+        self.history_window = None
 
         # 1. Инициализируем сервисы
         self.icon_generator = IconGenerator()
@@ -35,9 +39,7 @@ class TrayIcon(QSystemTrayIcon):
         self.setContextMenu(self.menu)
 
         # 4. Соединяем компоненты
-        # Сигнал об изменении файла от watcher'а к history_manager'у
         self.watcher.file_modified.connect(self.history_manager.add_file_version)
-        # Сигналы о сканировании от history_manager'а к TrayIcon'у
         self.history_manager.initial_scan_started.connect(self._on_scan_started)
         self.history_manager.initial_scan_finished.connect(self._on_scan_finished)
         
@@ -45,26 +47,41 @@ class TrayIcon(QSystemTrayIcon):
         app = QApplication.instance()
         app.aboutToQuit.connect(self._on_quit)
 
-        # 6. Запускаем первичное сканирование (вместо watcher.start())
+        # 6. Запускаем первичное сканирование
         self.history_manager.start_initial_scan(paths_to_watch)
 
     def _create_actions(self):
         """Создает и настраивает действия (пункты) для контекстного меню."""
-        self.settings_action = QAction("Настройки", self)
-        self.settings_action.triggered.connect(self._on_settings)
-        self.menu.addAction(self.settings_action)
+        # --- Действие "Открыть историю" ---
+        self.history_action = QAction("Открыть историю версий", self)
+        self.history_action.triggered.connect(self._open_history_window)
+        self.menu.addAction(self.history_action)
 
+        # --- Действие "Пауза/Возобновить" ---
         self.toggle_watch_action = QAction("Приостановить отслеживание", self)
         self.toggle_watch_action.setCheckable(True)
         self.toggle_watch_action.triggered.connect(self._on_toggle_watch)
-        self.toggle_watch_action.setEnabled(False) # Отключено во время сканирования
+        self.toggle_watch_action.setEnabled(False)
         self.menu.addAction(self.toggle_watch_action)
 
         self.menu.addSeparator()
 
+        # --- Действие "Выход" ---
         self.quit_action = QAction("Выход", self)
         self.quit_action.triggered.connect(QApplication.instance().quit)
         self.menu.addAction(self.quit_action)
+
+    def _open_history_window(self):
+        """Создает (если нужно) и показывает окно истории."""
+        if self.history_window is None:
+            # Окно создается только один раз при первом вызове
+            self.history_window = HistoryWindow(history_manager=self.history_manager)
+            # TODO: Передать в окно history_manager для доступа к данным
+
+        # Показываем окно и делаем его активным
+        self.history_window.show()
+        self.history_window.activateWindow()
+        self.history_window.raise_() # Для macOS и некоторых оконных менеджеров Linux
 
     @Slot()
     def _on_scan_started(self):
@@ -72,7 +89,7 @@ class TrayIcon(QSystemTrayIcon):
         print("TrayIcon: Получен сигнал о начале сканирования.")
         self.setIcon(self.icon_generator.get_icon('saving'))
         self.setToolTip("Backdraft: Идет сканирование файлов...")
-        self.toggle_watch_action.setEnabled(False) # Блокируем кнопку "Пауза"
+        self.toggle_watch_action.setEnabled(False)
 
     @Slot()
     def _on_scan_finished(self):
@@ -80,12 +97,8 @@ class TrayIcon(QSystemTrayIcon):
         print("TrayIcon: Получен сигнал о завершении сканирования.")
         self.setIcon(self.icon_generator.get_icon('normal'))
         self.setToolTip("Backdraft: Мониторинг активен.")
-        self.toggle_watch_action.setEnabled(True) # Разблокируем кнопку "Пауза"
-        self.watcher.start() # <-- ЗАПУСКАЕМ ОТСЛЕЖИВАНИЕ ТОЛЬКО СЕЙЧАС
-
-    def _on_settings(self):
-        """Слот для открытия окна настроек."""
-        print("Действие: Открыть настройки")
+        self.toggle_watch_action.setEnabled(True)
+        self.watcher.start()
 
     def _on_toggle_watch(self, checked: bool):
         """Слот для приостановки/возобновления отслеживания файлов."""
