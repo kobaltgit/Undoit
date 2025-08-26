@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import List
 
 from PySide6.QtCore import (QEasingCurve, QPoint, QPointF, QPropertyAnimation,
-                            Qt, Signal, Slot)
-from PySide6.QtGui import QColor, QPainter, QPaintEvent
+                            Qt, Signal, Slot, Property)
+from PySide6.QtGui import QColor, QPainter, QPaintEvent, QIcon # <-- Добавлен импорт QIcon
 from PySide6.QtWidgets import (QComboBox, QDialog, QFileDialog, QGroupBox,
                                QHBoxLayout, QLabel, QListWidget,
                                QListWidgetItem, QPushButton, QVBoxLayout,
@@ -18,68 +18,100 @@ class Switch(QWidget):
     """Кастомный виджет-переключатель (toggle switch)."""
     toggled = Signal(bool)
 
+    # Приватное хранилище для значения свойства circle_position
+    _circle_position_val: float = 0.0
+
+    # Геттер для свойства Qt
+    def _get_circle_position(self) -> float:
+        return self._circle_position_val
+
+    # Сеттер для свойства Qt, который также вызывает перерисовку
+    def _set_circle_position(self, pos: float):
+        self._circle_position_val = pos
+        self.update() # Запрашиваем перерисовку при изменении позиции
+
+    # Объявление свойства Qt: тип, геттер, сеттер
+    circle_position = Property(float, _get_circle_position, _set_circle_position)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setFixedSize(50, 28)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self._checked = False
 
-        self._circle_position = 3
-        self._bg_color = QColor("#808080")  # Серый (выключено)
+        self._circle_offset = 3  # Смещение круга сверху/снизу
+        self._circle_diameter = 22 # Диаметр круга
+        self._track_height = 28 # Высота дорожки
+        self._track_radius = 14 # Радиус скругления дорожки (половина _track_height)
+
+        # Инициализируем хранилище свойства начальным значением "выключено"
+        self._circle_position_val = float(self._circle_offset)
+
+        self._bg_color_off = QColor("#808080")  # Серый (выключено)
+        self._bg_color_on = QColor("#0078D4")   # Акцентный синий (включено)
+        self._current_bg_color = self._bg_color_off
+
+        # Анимация теперь будет анимировать объявленное свойство Qt 'circle_position'
         self.animation = QPropertyAnimation(self, b"circle_position", self)
         self.animation.setEasingCurve(QEasingCurve.Type.OutBounce)
         self.animation.setDuration(200)
 
-    @property
-    def circle_position(self):
-        return self._circle_position
+        # Устанавливаем начальное состояние без анимации
+        self.setChecked(self._checked, animate=False)
 
-    @circle_position.setter
-    def circle_position(self, pos):
-        self._circle_position = pos
-        self.update()
+    def setChecked(self, checked: bool, animate: bool = True):
+        if self._checked == checked:
+            return
 
-    def setChecked(self, checked):
         self._checked = checked
-        start_pos = 25 if checked else 3
-        end_pos = 3 if checked else 25
-        self.animation.setStartValue(end_pos)
-        self.animation.setEndValue(start_pos)
-        self.animation.start()
-        self._bg_color = QColor("#0078D4") if checked else QColor("#808080")
 
-    def isChecked(self):
-        return self._checked
+        # Рассчитываем целевую позицию круга на основе текущей ширины виджета
+        target_position = float((self.width() - self._circle_offset - self._circle_diameter) if self._checked else self._circle_offset)
+
+        if animate:
+            # Начальное значение берется из текущего состояния свойства Qt
+            self.animation.setStartValue(self.circle_position) 
+            self.animation.setEndValue(target_position)
+            self.animation.start()
+        else:
+            # Если без анимации, напрямую устанавливаем свойство Qt.
+            # Это вызовет _set_circle_position и self.update().
+            self.circle_position = target_position 
+
+        self._current_bg_color = self._bg_color_on if self._checked else self._bg_color_off
 
     def paintEvent(self, event: QPaintEvent):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(Qt.PenStyle.NoPen)
-        
+
         # Рисуем фон (дорожку)
         rect = self.rect()
-        painter.setBrush(self._bg_color)
-        painter.drawRoundedRect(rect, 14, 14)
-        
-        # Рисуем круг (бегунок)
+        painter.setBrush(self._current_bg_color)
+        painter.drawRoundedRect(rect, self._track_radius, self._track_radius)
+
+        # Рисуем круг (бегунок). Используем int() для координат.
         painter.setBrush(QColor("#FFFFFF"))
-        painter.drawEllipse(self._circle_position, 3, 22, 22)
+        painter.drawEllipse(int(self.circle_position), self._circle_offset, self._circle_diameter, self._circle_diameter)
+        painter.end()
 
-    def mousePressEvent(self, event):
-        self._checked = not self._checked
-        self.setChecked(self._checked)
-        self.toggled.emit(self._checked)
-
+    def mouseReleaseEvent(self, event):
+        # Только если кнопка была нажата и отпущена внутри виджета
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.setChecked(not self._checked)
+            self.toggled.emit(self._checked)
+        super().mouseReleaseEvent(event) # Вызываем родительский метод для обработки других событий
 
 class SettingsWindow(QDialog):
     """Окно для управления настройками приложения."""
-    def __init__(self, config_manager: ConfigManager, parent=None):
+    def __init__(self, config_manager: ConfigManager, app_icon: QIcon, parent=None): # <-- Добавлен app_icon
         super().__init__(parent)
         self.config_manager = config_manager
-        
+
         self.setWindowTitle("Backdraft - Настройки")
+        self.setWindowIcon(app_icon) # <-- Устанавливаем иконку окна
         self.setMinimumWidth(500)
-        
+
         self._init_ui()
         self._load_settings()
 
@@ -89,23 +121,23 @@ class SettingsWindow(QDialog):
         # --- Секция "Отслеживаемые папки" ---
         folders_group = QGroupBox("Отслеживаемые папки")
         folders_layout = QVBoxLayout()
-        
+
         self.paths_list = QListWidget()
         self.paths_list.itemSelectionChanged.connect(self._update_buttons_state)
-        
+
         buttons_layout = QHBoxLayout()
         add_button = QPushButton("Добавить папку")
         self.remove_button = QPushButton("Удалить выбранную")
         add_button.clicked.connect(self._add_path)
         self.remove_button.clicked.connect(self._remove_path)
-        
+
         buttons_layout.addWidget(add_button)
         buttons_layout.addWidget(self.remove_button)
-        
+
         folders_layout.addWidget(self.paths_list)
         folders_layout.addLayout(buttons_layout)
         folders_group.setLayout(folders_layout)
-        
+
         # --- Секция "Основные настройки" ---
         general_group = QGroupBox("Основные")
         general_layout = QHBoxLayout()
@@ -118,19 +150,19 @@ class SettingsWindow(QDialog):
         # --- Секция "Внешний вид" ---
         appearance_group = QGroupBox("Внешний вид")
         appearance_layout = QVBoxLayout()
-        
+
         theme_layout = QHBoxLayout()
         self.theme_combo = QComboBox()
         self.theme_combo.addItems(["Авто", "Светлая", "Темная"])
         theme_layout.addWidget(QLabel("Тема приложения:"))
         theme_layout.addWidget(self.theme_combo)
-        
+
         lang_layout = QHBoxLayout()
         self.lang_combo = QComboBox()
         self.lang_combo.addItems(["Авто", "Русский", "English"])
         lang_layout.addWidget(QLabel("Язык интерфейса:"))
         lang_layout.addWidget(self.lang_combo)
-        
+
         appearance_layout.addLayout(theme_layout)
         appearance_layout.addLayout(lang_layout)
         appearance_group.setLayout(appearance_layout)
@@ -143,7 +175,7 @@ class SettingsWindow(QDialog):
         main_layout.addWidget(general_group)
         main_layout.addWidget(appearance_group)
         main_layout.addWidget(self.close_button, 0, Qt.AlignmentFlag.AlignRight)
-        
+
         # Соединяем изменения с сохранением в конфиг
         self.startup_switch.toggled.connect(
             lambda checked: self.config_manager.set("launch_on_startup", checked)
@@ -164,9 +196,9 @@ class SettingsWindow(QDialog):
             self.paths_list.addItem(QListWidgetItem(path))
         self._update_buttons_state()
 
-        # Переключатель
-        self.startup_switch.setChecked(self.config_manager.get("launch_on_startup", False))
-        
+        # Переключатель - устанавливаем без анимации
+        self.startup_switch.setChecked(self.config_manager.get("launch_on_startup", False), animate=False)
+
         # Выпадающие списки
         theme_map = {"auto": "Авто", "light": "Светлая", "dark": "Темная"}
         current_theme_key = self.config_manager.get("theme", "auto")
@@ -197,9 +229,9 @@ class SettingsWindow(QDialog):
         selected_items = self.paths_list.selectedItems()
         if not selected_items:
             return
-            
+
         for item in selected_items:
             self.paths_list.takeItem(self.paths_list.row(item))
-            
+
         current_paths = [self.paths_list.item(i).text() for i in range(self.paths_list.count())]
         self.config_manager.set_watched_paths(current_paths)

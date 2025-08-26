@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # Генератор иконок-щитов
+import os # <-- Добавлен импорт os
 import sys
 import winreg
 from typing import Dict, Tuple
@@ -7,6 +8,21 @@ from typing import Dict, Tuple
 from PySide6.QtCore import Qt
 from PySide6.QtGui import (QBrush, QColor, QIcon, QImage, QPainter,
                            QPainterPath, QPen, QPixmap)
+
+
+# Вспомогательная функция для определения пути к ресурсам,
+# чтобы работало как при запуске скриптом, так и после компиляции PyInstaller.
+def _resource_path(relative_path):
+    """
+    Возвращает абсолютный путь к ресурсу, адаптированный для PyInstaller.
+    """
+    try:
+        # PyInstaller создает временную папку и устанавливает sys._MEIPASS
+        base_path = sys._MEIPASS
+    except AttributeError:
+        # Обычный запуск Python-скрипта
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 
 class IconGenerator:
@@ -27,13 +43,16 @@ class IconGenerator:
         """
         Читает реестр Windows для определения системной темы и акцентного цвета.
         Возвращает (цвет_контура, цвет_акцента) в формате hex.
+        Первый элемент также указывает на светлую/темную тему:
+        '#000000' для светлой, '#FFFFFF' для темной.
         """
         # Проверяем, что мы на Windows
         if sys.platform != 'win32':
-            return '#000000', '#0078D4' # Возвращаем значения по умолчанию для других ОС
+            # Для других ОС по умолчанию светлая тема и стандартный синий акцент
+            return '#000000', '#0078D4'
 
-        outline_color = '#000000'  # Черный для светлой темы
-        accent_color_hex = '#0078D4'  # Стандартный синий Windows
+        outline_color = '#000000'  # Черный для светлой темы по умолчанию
+        accent_color_hex = '#0078D4'  # Стандартный синий Windows по умолчанию
 
         try:
             # Определяем, используется ли светлая или темная тема
@@ -127,5 +146,23 @@ class IconGenerator:
         """
         Возвращает готовую QIcon для заданного состояния.
         Доступные состояния: 'normal', 'saving', 'paused', 'error'.
+        Это иконки для системного трея, они генерируются программно.
         """
         return self._icons.get(state, self._icons['normal'])
+
+    def get_app_icon(self, dark_icon_path: str, light_icon_path: str) -> QIcon:
+        """
+        Возвращает адаптивную иконку приложения (из файла .ico)
+        в зависимости от системной темы.
+        """
+        if sys.platform != 'win32':
+            # Для других ОС возвращаем светлую иконку по умолчанию
+            return QIcon(_resource_path(light_icon_path))
+
+        outline_color_hex, _ = self._get_system_theme_colors()
+
+        # Если outline_color_hex == '#FFFFFF', значит тема темная
+        if outline_color_hex == '#FFFFFF':
+            return QIcon(_resource_path(dark_icon_path))
+        else:
+            return QIcon(_resource_path(light_icon_path))

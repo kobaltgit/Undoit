@@ -4,13 +4,16 @@ import json
 from pathlib import Path
 from typing import Any, List
 
-from PySide6.QtCore import QObject
+from PySide6.QtCore import QObject, Signal # <-- Добавлен импорт Signal
 
 
 class ConfigManager(QObject):
     """
     Управляет настройками приложения, читая и сохраняя их в JSON-файл.
     """
+    # Сигнал, испускаемый при изменении и сохранении любых настроек
+    settings_changed = Signal() # <-- Объявление нового сигнала
+
     CONFIG_DIR_NAME = "Backdraft"
     CONFIG_FILE_NAME = "config.json"
 
@@ -60,6 +63,7 @@ class ConfigManager(QObject):
         try:
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 json.dump(self._settings, f, indent=4, ensure_ascii=False)
+            self.settings_changed.emit() # <-- Испускаем сигнал после успешного сохранения
         except IOError as e:
             print(f"Ошибка сохранения конфигурации: {e}")
 
@@ -69,8 +73,10 @@ class ConfigManager(QObject):
 
     def set(self, key: str, value: Any):
         """Устанавливает значение настройки и сразу сохраняет его в файл."""
-        self._settings[key] = value
-        self.save()
+        # Проверяем, изменилось ли значение, чтобы не сохранять и не испускать сигнал без необходимости
+        if self._settings.get(key) != value:
+            self._settings[key] = value
+            self.save() # save() сам испустит settings_changed.
 
     # --- Удобные методы-геттеры и сеттеры ---
 
@@ -84,4 +90,7 @@ class ConfigManager(QObject):
 
     def set_watched_paths(self, paths: List[str]):
         """Устанавливает список отслеживаемых папок."""
+        # Убедимся, что сравниваем списки как множества, если порядок неважен,
+        # но для сохранения порядка придерживаемся прямого сравнения.
+        # В данном случае, set() достаточно умён, чтобы сравнить без лишних сигналов.
         self.set("watched_paths", paths)
