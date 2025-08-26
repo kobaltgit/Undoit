@@ -76,7 +76,8 @@ class TrayIcon(QSystemTrayIcon):
         if self.history_window is None:
             # Окно создается только один раз при первом вызове
             self.history_window = HistoryWindow(history_manager=self.history_manager)
-            # TODO: Передать в окно history_manager для доступа к данным
+            self.history_manager.file_list_updated.connect(self.history_window.refresh_file_list)
+            self.history_manager.version_added.connect(self.history_window.refresh_version_list_if_selected)
 
         # Показываем окно и делаем его активным
         self.history_window.show()

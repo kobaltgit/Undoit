@@ -44,6 +44,10 @@ class HistoryManager(QObject):
     """
     initial_scan_started = Signal()
     initial_scan_finished = Signal()
+    # Сигнал, испускаемый, когда изменяется общий список отслеживаемых файлов
+    file_list_updated = Signal()
+    # Сигнал, испускаемый, когда добавляется новая версия для существующего файла
+    version_added = Signal(int) # int - это file_id
 
     DB_NAME = "metadata.db"
     OBJECTS_DIR = "objects"
@@ -149,6 +153,8 @@ class HistoryManager(QObject):
 
     def _add_version_from_path(self, file_path: Path, precalculated_hash: str = None):
         """Внутренний метод для добавления версии файла в хранилище и БД."""
+        was_new_file = False  # Флаг для отслеживания, был ли файл новым
+
         file_hash = precalculated_hash or self._calculate_hash(file_path)
         if not file_hash:
             print(f"Ошибка: Не удалось прочитать файл {file_path}")
@@ -163,9 +169,19 @@ class HistoryManager(QObject):
             shutil.copy2(file_path, object_path)
 
         cursor = self._db_connection.cursor()
-        cursor.execute("INSERT OR IGNORE INTO tracked_files (original_path) VALUES (?)", (str(file_path),))
+        
+        # Проверяем, существует ли файл в нашей БД
         cursor.execute("SELECT id FROM tracked_files WHERE original_path = ?", (str(file_path),))
-        file_id = cursor.fetchone()[0]
+        file_id_result = cursor.fetchone()
+
+        if not file_id_result:
+            # Если файла нет, это новый файл
+            was_new_file = True
+            cursor.execute("INSERT INTO tracked_files (original_path) VALUES (?)", (str(file_path),))
+            file_id = cursor.lastrowid
+        else:
+            # Файл уже существует
+            file_id = file_id_result[0]
 
         timestamp = datetime.fromtimestamp(file_path.stat().st_mtime).isoformat()
         cursor.execute(
@@ -173,6 +189,12 @@ class HistoryManager(QObject):
             (file_id, timestamp, file_hash, file_size)
         )
         self._db_connection.commit()
+
+        # Оповещаем UI, что данные изменились
+        self.version_added.emit(file_id)
+        if was_new_file:
+            self.file_list_updated.emit()
+
         print(f"Сохранена версия для: {file_path.name} | Хеш: {file_hash[:8]}...")
 
     def _calculate_hash(self, file_path: Path) -> str:
