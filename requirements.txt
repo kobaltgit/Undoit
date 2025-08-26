@@ -1,0 +1,3 @@
+# Список зависимостей Python
+PySide6
+watchdog

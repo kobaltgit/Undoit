@@ -1,0 +1,23 @@
+# Исключения для Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Исключения для IDE
+.vscode/
+.idea/
+
+# Исключения для сборки
+/dist/
+/build/
+/output/
+*.spec
+
+# Файлы Qt
+*.qm
+.DS_Store
