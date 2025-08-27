@@ -22,3 +22,5 @@ venv/
 *.qm
 .DS_Store
 cortex-snapshot.json
+cortex-snapshot (восстановлено).json
+CortexDevAnalyzer.exe

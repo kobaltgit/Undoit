@@ -2,7 +2,7 @@
 # Управление конфигурацией приложения
 import json
 from pathlib import Path
-from typing import Any, List, Set
+from typing import Any, Dict, List, Set
 
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import QSystemTrayIcon
@@ -12,17 +12,13 @@ class ConfigManager(QObject):
     """
     Управляет настройками приложения, читая и сохраняя их в JSON-файл.
     """
-    # --- Новые, более конкретные сигналы ---
-    # Сигнал об изменении списка отслеживаемых папок.
-    watched_paths_changed = Signal(list)
-    # Сигнал об изменении темы.
+    # --- Обновленные сигналы ---
+    # Сигнал об изменении списка отслеживаемых элементов.
+    watched_items_changed = Signal(list)
     theme_changed = Signal(str)
-    # Сигнал об изменении языка.
     language_changed = Signal(str)
-    # Сигнал об изменении настройки автозапуска.
     startup_changed = Signal(bool)
 
-    # Сигнал для отправки уведомлений в трей (остается без изменений).
     config_notification = Signal(str, QSystemTrayIcon.MessageIcon)
 
     CONFIG_DIR_NAME = "Backdraft"
@@ -34,14 +30,14 @@ class ConfigManager(QObject):
         self.app_data_path = self._get_app_data_path()
         self.config_path = self.app_data_path / self.CONFIG_FILE_NAME
 
+        # --- Новая структура настроек по умолчанию ---
         self._default_settings = {
-            "watched_paths": [],
-            "theme": "auto",  # auto, light, dark
-            "language": "auto", # auto, ru, en
+            "watched_items": [], # Теперь это watched_items
+            "theme": "auto",
+            "language": "auto",
             "launch_on_startup": False,
         }
 
-        # Загружаем настройки или используем дефолтные
         self._settings = self._default_settings.copy()
         self.load()
 
@@ -52,18 +48,22 @@ class ConfigManager(QObject):
         return path
 
     def load(self):
-        """Загружает настройки из config.json."""
+        """Загружает настройки из config.json и выполняет миграцию, если нужно."""
         if not self.config_path.exists():
-            # При первом запуске просто сохраняем дефолтные настройки, без уведомлений
             self._save_to_file()
             return
 
         try:
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 loaded_settings = json.load(f)
-                # Обновляем дефолтные значения загруженными,
-                # это сохранит новые ключи, если они появятся в будущих версиях
                 self._settings.update(loaded_settings)
+                
+                # --- Механизм миграции со старого формата ---
+                if "watched_paths" in self._settings:
+                    self._migrate_watched_paths_to_items()
+                    # После миграции сразу сохраняем, чтобы зафиксировать изменения
+                    self._save_to_file()
+
         except (json.JSONDecodeError, IOError) as e:
             self.config_notification.emit(
                 self.tr("Ошибка загрузки конфигурации: {0}. Будут использованы настройки по умолчанию.").format(e),
@@ -71,10 +71,45 @@ class ConfigManager(QObject):
             )
             self._settings = self._default_settings.copy()
 
+    def _migrate_watched_paths_to_items(self):
+        """Преобразует старый формат 'watched_paths' в новый 'watched_items'."""
+        old_paths = self._settings.get("watched_paths", [])
+        if not isinstance(old_paths, list):
+            # На случай, если данные повреждены
+            self._settings["watched_items"] = []
+            del self._settings["watched_paths"]
+            return
+            
+        new_items = []
+        for path_str in old_paths:
+            path = Path(path_str)
+            item_type = ""
+            if path.is_dir():
+                item_type = "folder"
+            elif path.is_file():
+                item_type = "file"
+            else:
+                continue # Пропускаем несуществующие пути
+
+            new_items.append({
+                "path": path.as_posix(),
+                "type": item_type,
+                "exclusions": []
+            })
+        
+        self._settings["watched_items"] = new_items
+        del self._settings["watched_paths"] # Удаляем старый ключ
+        self.config_notification.emit(
+            self.tr("Формат конфигурации был обновлен."), QSystemTrayIcon.Information
+        )
+
+
     def _save_to_file(self):
         """Внутренний метод для сохранения в файл без отправки сигналов."""
         try:
             with open(self.config_path, 'w', encoding='utf-8') as f:
+                # Убеждаемся, что старого ключа точно нет перед сохранением
+                self._settings.pop("watched_paths", None)
                 json.dump(self._settings, f, indent=4, ensure_ascii=False)
         except IOError as e:
             self.config_notification.emit(
@@ -88,20 +123,16 @@ class ConfigManager(QObject):
 
     def set(self, key: str, value: Any):
         """
-        Устанавливает значение настройки, сохраняет его в файл и испускает
-        соответствующий сигнал, если значение действительно изменилось.
+        Устанавливает значение настройки, сохраняет и испускает сигнал, если оно изменилось.
         """
         current_value = self._settings.get(key)
-        
-        # Переменная, чтобы определить, нужно ли сохранять и отправлять сигнал
         has_changed = False
 
-        if key == "watched_paths":
-            current_paths_set = self._normalize_paths_to_set(current_value)
-            new_paths_set = self._normalize_paths_to_set(value)
-            if current_paths_set != new_paths_set:
-                # Сохраняем в POSIX-формате для консистентности
-                self._settings[key] = [Path(p).as_posix() for p in value]
+        if key == "watched_items":
+            # Сложное сравнение для списка словарей, игнорируя порядок
+            if self._are_items_different(current_value, value):
+                # Нормализуем пути перед сохранением
+                self._settings[key] = self._normalize_items_for_storage(value)
                 has_changed = True
         else:
             if current_value != value:
@@ -111,9 +142,8 @@ class ConfigManager(QObject):
         if has_changed:
             self._save_to_file()
             
-            # Определяем, какой сигнал нужно отправить, и передаем новое значение
-            if key == "watched_paths":
-                self.watched_paths_changed.emit(self._settings[key])
+            if key == "watched_items":
+                self.watched_items_changed.emit(self._settings[key])
             elif key == "theme":
                 self.theme_changed.emit(value)
             elif key == "language":
@@ -121,35 +151,44 @@ class ConfigManager(QObject):
             elif key == "launch_on_startup":
                 self.startup_changed.emit(value)
 
-    def _normalize_paths_to_set(self, paths: List[str]) -> Set[str]:
+    def _normalize_items_for_storage(self, items: List[Dict]) -> List[Dict]:
+        """Приводит все пути в элементах к POSIX-формату для консистентности."""
+        normalized_items = []
+        for item in items:
+            normalized_item = item.copy()
+            normalized_item["path"] = Path(item["path"]).as_posix()
+            normalized_item["exclusions"] = sorted([Path(ex).as_posix() for ex in item.get("exclusions", [])])
+            normalized_items.append(normalized_item)
+        return normalized_items
+
+    def _are_items_different(self, list_a: List[Dict], list_b: List[Dict]) -> bool:
         """
-        Вспомогательный метод для нормализации списка путей в набор строк
-        для сравнения без учета порядка и различий в слэшах.
+        Сравнивает два списка отслеживаемых элементов без учета порядка.
         """
-        if not paths:
-            return set()
-        normalized_paths = set()
-        for p_str in paths:
-            try:
-                # Resolve() для канонического пути, as_posix() для единообразных слэшей
-                normalized_paths.add(Path(p_str).resolve().as_posix())
-            except Exception:
-                # Если путь невалиден, просто добавляем его как есть (лучше, чем пропустить)
-                normalized_paths.add(Path(p_str).as_posix())
-        return normalized_paths
+        if len(list_a) != len(list_b):
+            return True
+
+        # Преобразуем каждый словарь в неизменяемый вид для сравнения в множестве
+        def make_hashable(d):
+            # Сортируем исключения, чтобы порядок не влиял на сравнение
+            exclusions = tuple(sorted(d.get("exclusions", [])))
+            return (d["path"], d["type"], exclusions)
+
+        set_a = {make_hashable(item) for item in self._normalize_items_for_storage(list_a)}
+        set_b = {make_hashable(item) for item in self._normalize_items_for_storage(list_b)}
+
+        return set_a != set_b
 
     # --- Удобные методы-геттеры и сеттеры ---
 
     def get_storage_path(self) -> Path:
-        """Возвращает путь к папке с хранилищем версий."""
+        """Возврает путь к папке с хранилищем версий."""
         return self.app_data_path / "storage"
 
-    def get_watched_paths(self) -> List[str]:
-        """Возвращает список отслеживаемых папок."""
-        return self.get("watched_paths", [])
+    def get_watched_items(self) -> List[Dict]:
+        """Возвращает список отслеживаемых элементов."""
+        return self.get("watched_items", [])
 
-    def set_watched_paths(self, paths: List[str]):
-        """
-        Устанавливает список отслеживаемых папок.
-        """
-        self.set("watched_paths", paths)
+    def set_watched_items(self, items: List[Dict]):
+        """Устанавливает список отслеживаемых элементов."""
+        self.set("watched_items", items)
