@@ -41,6 +41,12 @@ class TrayIcon(QSystemTrayIcon):
         self.history_manager = HistoryManager(storage_path)
         self.watcher = FileWatcher(self._current_watched_items)
         self.startup_manager = StartupManager(app_name, app_executable_path)
+        
+        # --- Таймер для обработки одиночного клика ---
+        self.single_click_timer = QTimer(self)
+        self.single_click_timer.setSingleShot(True)
+        self.single_click_timer.setInterval(QApplication.doubleClickInterval())
+        self.single_click_timer.timeout.connect(self._open_history_window)
 
         # 2. Устанавливаем иконку и меню
         self.setIcon(self.icon_generator.get_icon('normal'))
@@ -82,13 +88,16 @@ class TrayIcon(QSystemTrayIcon):
 
     @Slot(QSystemTrayIcon.ActivationReason)
     def _on_icon_activated(self, reason: QSystemTrayIcon.ActivationReason):
-        """Обрабатывает клики по иконке в системном трее."""
-        if reason == self.ActivationReason.Trigger:  # Одиночный левый клик
-            self._open_history_window()
-        elif reason == self.ActivationReason.DoubleClick:  # Двойной левый клик
+        """Обрабатывает клики по иконке в системном трее, решая конфликт одиночного и двойного клика."""
+        if reason == self.ActivationReason.DoubleClick:
+            # При двойном клике останавливаем таймер одиночного клика и открываем настройки
+            self.single_click_timer.stop()
             self._open_settings_window()
-        elif reason == self.ActivationReason.MiddleClick:  # Средний клик
-            # Программно "нажимаем" на пункт меню "Приостановить/Возобновить"
+        elif reason == self.ActivationReason.Trigger:
+            # При одиночном клике просто запускаем таймер
+            self.single_click_timer.start()
+        elif reason == self.ActivationReason.MiddleClick:
+            # Средний клик работает как и раньше
             if self.toggle_watch_action.isEnabled():
                 self.toggle_watch_action.trigger()
 
