@@ -9,8 +9,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple, Optional, Dict
 import tempfile 
+import psutil # Для получения информации о диске
 
-from PySide6.QtCore import QObject, Signal, Slot, QThread
+from PySide6.QtCore import QObject, Signal, Slot, QThread, QTimer
 from PySide6.QtWidgets import QSystemTrayIcon
 
 # --- Импорты для обработки файлов ---
@@ -149,8 +150,14 @@ class HistoryManager(QObject):
     history_notification = Signal(str, QSystemTrayIcon.MessageIcon)
     scan_progress = Signal(str)
 
+    # Новый сигнал для обновления информации о хранилище
+    # Аргументы: (процент_заполнения_иконки_0_1, размер_хранилища_форматировано,
+    #             свободное_место_диска_форматировано, процент_для_тултипа_0_100)
+    storage_info_updated = Signal(float, str, str, float)
+
     DB_NAME = "metadata.db"
     OBJECTS_DIR = "objects"
+    STORAGE_SCAN_INTERVAL_MS = 60 * 1000 # 1 минута
 
     # --- Списки поддерживаемых расширений для предпросмотра ---
     TEXT_EXTENSIONS = {'.txt', '.log', '.md', '.py', '.json', '.xml', '.html', '.css', '.js', '.csv'}
@@ -180,6 +187,15 @@ class HistoryManager(QObject):
         self._pending_args: Optional[tuple] = None
         self._temp_preview_files: List[Path] = [] # Список временных файлов для очистки
 
+        # --- Таймер для периодического обновления информации о хранилище ---
+        self._storage_info_timer = QTimer(self)
+        self._storage_info_timer.setInterval(self.STORAGE_SCAN_INTERVAL_MS)
+        self._storage_info_timer.timeout.connect(self.update_storage_info)
+        self._storage_info_timer.start()
+
+        # Первоначальное обновление информации о хранилище (выполняется синхронно)
+        self.update_storage_info()
+
     def _calculate_hash(self, file_path: Path) -> str | None:
         try:
             sha256 = hashlib.sha256()
@@ -189,6 +205,17 @@ class HistoryManager(QObject):
             return sha256.hexdigest()
         except (OSError, IOError):
             return None
+
+    def _format_size(self, size_bytes: int) -> str:
+        """Форматирует размер файла в удобочитаемый вид."""
+        if size_bytes < 1024:
+            return self.tr("{0} B").format(size_bytes)
+        elif size_bytes < 1024 ** 2:
+            return self.tr("{0:.1f} KB").format(size_bytes / 1024)
+        elif size_bytes < 1024 ** 3:
+            return self.tr("{0:.1f} MB").format(size_bytes / (1024 ** 2))
+        else:
+            return self.tr("{0:.1f} GB").format(size_bytes / (1024 ** 3))
 
     def _request_stop_all_workers(self):
         """Отправляет неблокирующий запрос на остановку всем активным рабочим."""
@@ -236,6 +263,66 @@ class HistoryManager(QObject):
         self._cleanup_worker.cleanup_notification.connect(self.history_notification)
         self._cleanup_thread.start()
 
+    @Slot()
+    def update_storage_info(self):
+        """
+        Рассчитывает текущее использование хранилища относительно свободного места на диске
+        и отправляет сигнал.
+        """
+        try:
+            # 1. Рассчитываем размер папки хранилища Undoit
+            total_undoit_storage_size_bytes = 0
+            if self.storage_path.exists():
+                for dirpath, dirnames, filenames in os.walk(self.storage_path):
+                    for f in filenames:
+                        fp = Path(dirpath) / f
+                        if fp.is_file() and not fp.is_symlink():
+                            total_undoit_storage_size_bytes += fp.stat().st_size
+
+            # 2. Получаем информацию о диске, на котором находится хранилище
+            # Передаем корень диска в psutil.disk_usage
+            disk_root = str(self.storage_path.anchor if self.storage_path.is_absolute() else self.storage_path.resolve().anchor)
+            disk_usage = psutil.disk_usage(disk_root)
+
+            free_disk_space_bytes = disk_usage.free
+
+            # 3. Рассчитываем проценты
+            if free_disk_space_bytes > 0:
+                # Отношение размера хранилища Undoit к свободному месту на диске
+                storage_to_free_ratio = total_undoit_storage_size_bytes / free_disk_space_bytes
+
+                # Процент для иконки (0.0 до 1.0), ограниченный 100%
+                icon_fill_percentage = min(storage_to_free_ratio, 1.0)
+
+                # Процент для тултипа (0.0 до 100.0), также ограниченный 100%
+                tooltip_percentage = min(storage_to_free_ratio * 100.0, 100.0)
+            else:
+                # Если свободного места нет, то хранилище занимает 100% (или больше)
+                # от доступного свободного места.
+                icon_fill_percentage = 1.0 # Полностью заполнено (красный)
+                tooltip_percentage = 100.0 # 100%
+
+            # Форматируем размеры
+            formatted_storage_size = self._format_size(total_undoit_storage_size_bytes)
+            formatted_free_disk_space = self._format_size(free_disk_space_bytes)
+
+            # Отправляем сигнал
+            self.storage_info_updated.emit(
+                icon_fill_percentage, 
+                formatted_storage_size, 
+                formatted_free_disk_space, 
+                tooltip_percentage
+            )
+
+        except (OSError, psutil.Error, FileNotFoundError) as e:
+            self.history_notification.emit(
+                self.tr("Ошибка при получении информации о хранилище: {0}").format(e),
+                QSystemTrayIcon.Warning
+            )
+            # При ошибке устанавливаем значения по умолчанию
+            self.storage_info_updated.emit(0.0, self.tr("Н/Д"), self.tr("Н/Д"), 0.0)
+
+
     def _execute_pending_operation(self):
         """Выполняет отложенную операцию после завершения текущей."""
         if not self._pending_operation:
@@ -264,6 +351,7 @@ class HistoryManager(QObject):
 
         # self.file_list_updated.emit() # Теперь обновляется в _add_version_from_path
         self.scan_finished.emit()
+        self.update_storage_info() # Обновляем информацию о хранилище после сканирования
 
         self._execute_pending_operation()
 
@@ -280,6 +368,7 @@ class HistoryManager(QObject):
 
         self.file_list_updated.emit() # Очистка может удалить файлы, поэтому обновляем список
         self.cleanup_finished.emit()
+        self.update_storage_info() # Обновляем информацию о хранилище после очистки
 
         self._execute_pending_operation()
 
@@ -327,6 +416,8 @@ class HistoryManager(QObject):
             self.history_notification.emit(self.tr("Добавлен новый файл для отслеживания: {0}").format(file_path.name), QSystemTrayIcon.Information)
         else:
             self.history_notification.emit(self.tr("Сохранена новая версия файла: {0}").format(file_path.name), QSystemTrayIcon.Information)
+
+        self.update_storage_info() # Обновляем информацию о хранилище после добавления версии
 
     def get_all_tracked_files(self) -> List[tuple]:
         with self._db_connection_lock:
@@ -574,6 +665,9 @@ class HistoryManager(QObject):
             self._scan_thread.wait(500)
         if self._cleanup_thread and self._cleanup_thread.isRunning():
             self._cleanup_thread.wait(500)
+
+        self._storage_info_timer.stop() # Останавливаем таймер
+
         if self._db_connection:
             with self._db_connection_lock:
                 self._db_connection.close()

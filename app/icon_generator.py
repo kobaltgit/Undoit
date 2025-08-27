@@ -74,7 +74,7 @@ class IconGenerator:
             # Конвертируем из DWM-формата (ABGR) в RGB hex
             b = (accent_color_dw >> 16) & 0xff
             g = (accent_color_dw >> 8) & 0xff
-            r = accent_color_dw & 0xff
+            r = (accent_color_dw) & 0xff
             accent_color_hex = f'#{r:02x}{g:02x}{b:02x}'
             winreg.CloseKey(key)
         except Exception:
@@ -83,9 +83,11 @@ class IconGenerator:
 
         return outline_color, accent_color_hex
 
-    def _generate_shield_icon(self, fill_color: QColor) -> QImage:
+    def _generate_shield_icon(self, fill_color: QColor, fill_percentage: float = 1.0) -> QImage:
         """
         Основная функция, которая рисует одну иконку с заданной заливкой.
+        fill_percentage: процент заполнения иконки (0.0 до 1.0).
+                         Если < 1.0, заливка будет частичной, иначе полной.
         """
         icon_size = 64  # Стандартный размер для иконок трея
         image = QImage(icon_size, icon_size, QImage.Format.Format_ARGB32)
@@ -108,9 +110,6 @@ class IconGenerator:
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         painter.setPen(pen)
 
-        # Настройка кисти (заливки)
-        painter.setBrush(QBrush(fill_color))
-
         # Создание формы щита (буквы 'U') с помощью QPainterPath
         path = QPainterPath()
         path.moveTo(20 * scale, 15 * scale) # Верхний левый угол
@@ -119,19 +118,54 @@ class IconGenerator:
         path.arcTo(20 * scale, 40 * scale, 60 * scale, 50 * scale, 180, 180)
         path.lineTo(80 * scale, 15 * scale) # Правая вертикальная линия
 
+        # Рисуем контур щита
         painter.drawPath(path)
+
+        # Если fill_percentage меньше 1.0, делаем частичную заливку
+        if 0.0 < fill_percentage < 1.0:
+            # Определяем высоту для заливки
+            # Высота щита от 15*scale до 90*scale (по Y)
+            total_height_px = (90 - 15) * scale
+            fill_height_px = total_height_px * fill_percentage
+
+            # Начало заливки по Y (снизу вверх)
+            fill_start_y = (90 * scale) - fill_height_px
+
+            # Создаем клипинг-путь, чтобы заливка была только внутри формы щита
+            clip_path = QPainterPath()
+            clip_path.addPath(path) # Используем ту же форму, что и для контура
+
+            # Ограничиваем область заливки снизу
+            fill_rect = path.boundingRect()
+            fill_rect.setY(fill_start_y)
+            fill_rect.setHeight(fill_height_px)
+            # Пересекаем clip_path с прямоугольником заливки, чтобы не рисовать выше нужной точки
+            # (path.intersected(QPainterPath(fill_rect))) не работает так, как ожидалось
+            # Проще создать прямоугольник клипинга и использовать его
+            clip_rect_for_fill = fill_rect.intersected(path.boundingRect()) # Гарантируем, что rect внутри bounds
+
+            painter.setClipRect(clip_rect_for_fill.toRect()) # Устанавливаем клипинг прямоугольником
+            painter.setBrush(QBrush(fill_color))
+            painter.drawPath(path) # Рисуем заливку внутри клипинга
+
+            painter.setClipPath(QPainterPath()) # Сбрасываем клипинг
+        elif fill_percentage >= 1.0: # Полная заливка
+            painter.setBrush(QBrush(fill_color))
+            painter.drawPath(path)
+
         painter.end()
 
         return image
 
     def generate_all_icons(self):
         """
-        Генерирует и кэширует все состояния иконок.
+        Генерирует и кэширует все состояния иконок (кроме динамической нормальной).
+        Динамическая иконка с fill_percentage генерируется по запросу.
         """
         _, accent_color_hex = self._get_system_theme_colors()
 
+        # Эти иконки всегда полностью залиты (fill_percentage = 1.0)
         state_colors = {
-            'normal': Qt.GlobalColor.transparent,
             'saving': QColor(accent_color_hex),
             'paused': QColor('#808080'),  # Серый
             'error': QColor('#D32F2F'),   # Насыщенный красный
@@ -139,17 +173,46 @@ class IconGenerator:
         }
 
         for state, color in state_colors.items():
-            image = self._generate_shield_icon(color)
+            image = self._generate_shield_icon(color, fill_percentage=1.0)
             pixmap = QPixmap.fromImage(image)
             self._icons[state] = QIcon(pixmap)
+
+        # Для 'normal' состояния мы не кэшируем иконку здесь, так как она может быть динамической.
+        # Вместо этого, будет вызван get_dynamic_icon.
+        # Чтобы избежать ошибки, если запросят 'normal' без параметров,
+        # можно добавить пустую иконку или иконку с 0% заливкой как базовую.
+        image = self._generate_shield_icon(QColor(Qt.GlobalColor.transparent), fill_percentage=0.0)
+        pixmap = QPixmap.fromImage(image)
+        self._icons['normal'] = QIcon(pixmap)
 
     def get_icon(self, state: str) -> QIcon:
         """
         Возвращает готовую QIcon для заданного состояния.
+        Для статических состояний берет из кэша.
+        Для 'normal' состояния нужно использовать get_dynamic_icon.
         Доступные состояния: 'normal', 'saving', 'paused', 'error', 'inactive'.
         Это иконки для системного трея, они генерируются программно.
         """
         return self._icons.get(state, self._icons['normal'])
+
+    def get_dynamic_icon(self, fill_percentage: float = 0.0) -> QIcon:
+        """
+        Генерирует и возвращает иконку для 'normal' состояния с динамической заливкой,
+        цвет которой зависит от процента заполнения.
+        fill_percentage: процент заполнения (0.0 до 1.0).
+        """
+        # Определяем цвет заливки в зависимости от процента
+        if fill_percentage <= 0.25:
+            fill_color = QColor("#28A745")  # Green (Bootstrap success)
+        elif fill_percentage <= 0.50:
+            fill_color = QColor("#FFC107")  # Yellow (Bootstrap warning)
+        else:
+            fill_color = QColor("#DC3545")  # Red (Bootstrap danger)
+
+        image = self._generate_shield_icon(fill_color, fill_percentage)
+        pixmap = QPixmap.fromImage(image)
+        return QIcon(pixmap)
+
 
     def get_app_icon(self, dark_icon_path: str, light_icon_path: str) -> QIcon:
         """

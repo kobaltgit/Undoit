@@ -37,13 +37,19 @@ class TrayIcon(QSystemTrayIcon):
         self.app_name = app_name
         self._current_watched_items = watched_items
 
+        # Сохраняем последнее состояние использования хранилища для отображения в тултипе
+        self._last_icon_fill_percentage = 0.0 # Процент для иконки (0.0-1.0)
+        self._last_formatted_undoit_storage_size = self.tr("Н/Д") # Размер хранилища Undoit
+        self._last_formatted_free_disk_space = self.tr("Н/Д") # Свободное место на диске
+        self._last_tooltip_percentage = 0.0 # Процент для тултипа (0.0-100.0)
+
         # 1. Инициализируем сервисы
         self.aggregator = NotificationAggregator(self)
         self.icon_generator = IconGenerator()
         self.history_manager = HistoryManager(storage_path)
         self.watcher = FileWatcher(self._current_watched_items)
         self.startup_manager = StartupManager(app_name, app_executable_path)
-        
+
         # --- Таймер для обработки одиночного клика ---
         self.single_click_timer = QTimer(self)
         self.single_click_timer.setSingleShot(True)
@@ -51,7 +57,8 @@ class TrayIcon(QSystemTrayIcon):
         self.single_click_timer.timeout.connect(self._open_history_window)
 
         # 2. Устанавливаем иконку и меню
-        self.setIcon(self.icon_generator.get_icon('normal'))
+        # Изначально устанавливаем иконку на основе последнего состояния хранилища (0% заполнения)
+        self.setIcon(self.icon_generator.get_dynamic_icon(self._last_icon_fill_percentage))
         self.setToolTip(self.tr("Backdraft: Инициализация..."))
         self.menu = QMenu()
         self._create_actions()
@@ -62,20 +69,21 @@ class TrayIcon(QSystemTrayIcon):
 
         # 4. Соединяем компоненты
         self.aggregator.aggregated_notification_ready.connect(self._show_native_notification)
-        
+
         self.watcher.file_modified.connect(self.history_manager.add_file_version)
         self.watcher.file_watcher_notification.connect(self._on_watcher_notification)
-        
+
         self.history_manager.scan_started.connect(self._on_scan_started)
         self.history_manager.scan_finished.connect(self._on_scan_finished)
         self.history_manager.scan_progress.connect(self._on_scan_progress)
         self.history_manager.cleanup_started.connect(self._on_cleanup_started)
         self.history_manager.cleanup_finished.connect(self._on_cleanup_finished)
         self.history_manager.history_notification.connect(self._on_history_notification)
+        self.history_manager.storage_info_updated.connect(self._on_storage_info_updated) # НОВОЕ СОЕДИНЕНИЕ
 
         self.config_manager.watched_items_changed.connect(self._on_watched_items_changed)
         self.config_manager.startup_changed.connect(self._on_startup_setting_changed)
-        
+
         self.startup_manager.startup_action_completed.connect(self._on_startup_action_completed)
 
         # 5. Подключаем очистку
@@ -134,10 +142,23 @@ class TrayIcon(QSystemTrayIcon):
     @Slot(str, QSystemTrayIcon.MessageIcon)
     def _on_history_notification(self, msg: str, icon: QSystemTrayIcon.MessageIcon):
         self.show_notification(self.tr("Backdraft - История"), msg, icon)
-    
+
     @Slot(str, QSystemTrayIcon.MessageIcon)
     def _on_startup_action_completed(self, message: str, icon_type: QSystemTrayIcon.MessageIcon):
         self.show_notification(self.tr("Backdraft - Автозапуск"), message, icon_type, topic="settings")
+
+    @Slot(float, str, str, float)
+    def _on_storage_info_updated(self, icon_fill_percentage: float, undoit_storage_size: str, free_disk_space: str, tooltip_percentage: float):
+        """
+        Слот для обновления информации о хранилище.
+        Обновляет внутренние переменные и вызывает перерисовку иконки/тултипа.
+        """
+        self._last_icon_fill_percentage = icon_fill_percentage
+        self._last_formatted_undoit_storage_size = undoit_storage_size
+        self._last_formatted_free_disk_space = free_disk_space
+        self._last_tooltip_percentage = tooltip_percentage
+        self._update_monitoring_ui_state() # Перерисовываем иконку и тултип
+
 
     def _initial_startup_operations(self):
         self._update_monitoring_ui_state()
@@ -213,23 +234,45 @@ class TrayIcon(QSystemTrayIcon):
             self._update_monitoring_ui_state()
 
     def _update_monitoring_ui_state(self):
+        """
+        Обновляет состояние иконки в трее и всплывающей подсказки
+        на основе текущего статуса приложения и использования хранилища.
+        """
+        base_tooltip = self.tr("Undoit: ") # Используем новое имя
+
+        # Форматирование процента для тултипа: если меньше 0.1%, но не 0, показать "< 0.1%"
+        formatted_percentage_for_tooltip = ""
+        if self._last_tooltip_percentage > 0 and self._last_tooltip_percentage < 0.1:
+            formatted_percentage_for_tooltip = self.tr("< 0.1%")
+        else:
+            formatted_percentage_for_tooltip = f"{self._last_tooltip_percentage:.1f}%"
+
+        # Строка с информацией о хранилище
+        storage_info_text = self.tr(
+            "Занято {0} из {1} свободного места ({2})"
+        ).format(
+            self._last_formatted_undoit_storage_size,
+            self._last_formatted_free_disk_space,
+            formatted_percentage_for_tooltip
+        )
+
         if self.history_manager._is_scan_running:
             self.setIcon(self.icon_generator.get_icon('saving'))
-            self.setToolTip(self.tr("Backdraft: Идет сканирование файлов..."))
+            self.setToolTip(base_tooltip + self.tr("Идет сканирование файлов...\n") + storage_info_text)
             self.toggle_watch_action.setText(self.tr("Сканирование..."))
             self.toggle_watch_action.setEnabled(False)
             return
 
         if self.history_manager._is_cleanup_running:
             self.setIcon(self.icon_generator.get_icon('error'))
-            self.setToolTip(self.tr("Backdraft: Идет очистка истории..."))
+            self.setToolTip(base_tooltip + self.tr("Идет очистка истории...\n") + storage_info_text)
             self.toggle_watch_action.setText(self.tr("Очистка истории..."))
             self.toggle_watch_action.setEnabled(False)
             return
 
         if not self._current_watched_items:
             self.setIcon(self.icon_generator.get_icon('inactive'))
-            self.setToolTip(self.tr("Backdraft: Нет элементов для отслеживания."))
+            self.setToolTip(base_tooltip + self.tr("Нет элементов для отслеживания.\n") + storage_info_text)
             self.toggle_watch_action.setText(self.tr("Нет элементов для отслеживания"))
             self.toggle_watch_action.setChecked(False)
             self.toggle_watch_action.setEnabled(False)
@@ -239,21 +282,23 @@ class TrayIcon(QSystemTrayIcon):
 
         if self.watcher.is_paused():
             self.setIcon(self.icon_generator.get_icon('paused'))
-            self.setToolTip(self.tr("Backdraft: Мониторинг приостановлен."))
+            self.setToolTip(base_tooltip + self.tr("Мониторинг приостановлен.\n") + storage_info_text)
             self.toggle_watch_action.setText(self.tr("Возобновить отслеживание"))
             self.toggle_watch_action.setChecked(True)
             self.toggle_watch_action.setEnabled(True)
         elif self.watcher.is_running():
-            self.setIcon(self.icon_generator.get_icon('normal'))
-            self.setToolTip(self.tr("Backdraft: Мониторинг активен."))
+            # Здесь используем динамическую иконку
+            self.setIcon(self.icon_generator.get_dynamic_icon(self._last_icon_fill_percentage))
+            self.setToolTip(base_tooltip + self.tr("Мониторинг активен.\n") + storage_info_text)
             self.toggle_watch_action.setText(self.tr("Приостановить отслеживание"))
             self.toggle_watch_action.setChecked(False)
             self.toggle_watch_action.setEnabled(True)
-        else:
-            self.setIcon(self.icon_generator.get_icon('inactive'))
-            self.setToolTip(self.tr("Backdraft: Мониторинг неактивен."))
+        else: # Состояние "неактивен", но не по причине отсутствия watched_items
+            self.setIcon(self.icon_generator.get_icon('inactive')) # Можно также использовать get_dynamic_icon с 0%
+            self.setToolTip(base_tooltip + self.tr("Мониторинг неактивен.\n") + storage_info_text)
             self.toggle_watch_action.setText(self.tr("Возобновить отслеживание"))
             self.toggle_watch_action.setEnabled(True)
+
 
     @Slot()
     def _on_scan_started(self): self._update_monitoring_ui_state()
@@ -272,7 +317,7 @@ class TrayIcon(QSystemTrayIcon):
                 self.watcher.start()
             else:
                 self.show_notification(
-                    self.tr("Backdraft - Мониторинг"),
+                    self.tr("Undoit - Мониторинг"),
                     self.tr("Нет элементов для отслеживания. Мониторинг не может быть возобновлен."),
                     QSystemTrayIcon.Warning
                 )
@@ -294,22 +339,23 @@ class TrayIcon(QSystemTrayIcon):
 
         added_paths = new_paths - old_paths
         removed_paths = old_paths - new_paths
-        
+
         only_exclusions_changed = not added_paths and not removed_paths
 
         # 1. Обновляем внутреннее состояние и передаем полный список наблюдателю
         self._current_watched_items = new_items
         self.watcher.update_items(new_items)
-        
+
         # 2. Запускаем очистку, если что-то удалили ИЛИ изменили исключения.
-        if removed_paths or only_exclusions_changed:
+        # ИЛИ если изменилось хоть что-то, чтобы гарантировать актуальность БД.
+        if removed_paths or only_exclusions_changed or (len(old_paths) != len(new_paths)):
             self.history_manager.start_cleanup(new_items)
-        
+
         # 3. Запускаем сканирование только для НОВЫХ добавленных элементов
         if added_paths:
             added_items = [item for item in new_items if item['path'] in added_paths]
             self.history_manager.start_scan(added_items)
-        
+
         # 4. Пытаемся запустить/обновить мониторинг в любом случае
         self._attempt_start_monitoring()
 
@@ -319,10 +365,10 @@ class TrayIcon(QSystemTrayIcon):
             self.help_window = HelpWindow(app_icon=self.app_icon)
             # Сбрасываем self.help_window, когда окно закрывается
             self.help_window.finished.connect(lambda: setattr(self, 'help_window', None))
-        
+
         if not self.help_window.isVisible():
             self.help_window.show()
-        
+
         self.help_window.activateWindow()
         self.help_window.raise_()
 
