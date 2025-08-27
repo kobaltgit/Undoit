@@ -5,7 +5,7 @@ from typing import List, Dict
 
 from PySide6.QtCore import Slot, QTimer
 from PySide6.QtGui import QAction, QIcon
-from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
+from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon, QMessageBox
 
 from app.config_manager import ConfigManager
 from app.file_watcher import FileWatcher
@@ -15,6 +15,7 @@ from app.notification_aggregator import NotificationAggregator
 from app.startup_manager import StartupManager
 from app.ui.main_window import HistoryWindow
 from app.ui.settings_window import SettingsWindow
+from app.ui.help_window import HelpWindow
 
 
 class TrayIcon(QSystemTrayIcon):
@@ -32,6 +33,7 @@ class TrayIcon(QSystemTrayIcon):
         self.app_icon = app_icon
         self.history_window = None
         self.settings_window = None
+        self.help_window = None
         self.app_name = app_name
         self._current_watched_items = watched_items
 
@@ -153,15 +155,30 @@ class TrayIcon(QSystemTrayIcon):
         self.history_action = QAction(self.tr("Открыть историю версий"), self)
         self.history_action.triggered.connect(self._open_history_window)
         self.menu.addAction(self.history_action)
+
         self.settings_action = QAction(self.tr("Настройки"), self)
         self.settings_action.triggered.connect(self._open_settings_window)
         self.menu.addAction(self.settings_action)
+
         self.menu.addSeparator()
+
         self.toggle_watch_action = QAction(self.tr("Приостановить отслеживание"), self)
         self.toggle_watch_action.setCheckable(True)
         self.toggle_watch_action.triggered.connect(self._on_toggle_watch)
         self.menu.addAction(self.toggle_watch_action)
+
         self.menu.addSeparator()
+
+        self.help_action = QAction(self.tr("Помощь"), self)
+        self.help_action.triggered.connect(self._open_help_window)
+        self.menu.addAction(self.help_action)
+
+        self.about_action = QAction(self.tr("О программе"), self)
+        self.about_action.triggered.connect(self._show_about_dialog)
+        self.menu.addAction(self.about_action)
+
+        self.menu.addSeparator()
+
         self.quit_action = QAction(self.tr("Выход"), self)
         self.quit_action.triggered.connect(QApplication.instance().quit)
         self.menu.addAction(self.quit_action)
@@ -295,6 +312,34 @@ class TrayIcon(QSystemTrayIcon):
         
         # 4. Пытаемся запустить/обновить мониторинг в любом случае
         self._attempt_start_monitoring()
+
+    def _open_help_window(self):
+        """Создает (если нужно) и показывает окно помощи."""
+        if self.help_window is None:
+            self.help_window = HelpWindow(app_icon=self.app_icon)
+            # Сбрасываем self.help_window, когда окно закрывается
+            self.help_window.finished.connect(lambda: setattr(self, 'help_window', None))
+        
+        if not self.help_window.isVisible():
+            self.help_window.show()
+        
+        self.help_window.activateWindow()
+        self.help_window.raise_()
+
+    def _show_about_dialog(self):
+        """Показывает стандартный диалог 'О программе'."""
+        # TODO: Заменить 'Backdraft' на новое имя после рефакторинга
+        repo_url = "https://github.com/kobaltgit/Backdraft"
+        about_text = self.tr(
+            "<h3>{app_name}</h3>"
+            "<p>Программа для фонового отслеживания и версионирования файлов.</p>"
+            "<p>Автор: kobaltgit<br/>"
+            "Профиль: <a href='https://github.com/kobaltgit'>github.com/kobaltgit</a><br/>"
+            "Репозиторий: <a href='{repo_url}'>{repo_url}</a></p>"
+            "<p>Сделано с помощью PySide6 и Qt.</p>"
+        ).format(app_name=self.app_name, repo_url=repo_url)
+
+        QMessageBox.about(None, self.tr("О программе {0}").format(self.app_name), about_text)
 
     def _apply_initial_startup_setting(self):
         enable_startup = self.config_manager.get("launch_on_startup", False)

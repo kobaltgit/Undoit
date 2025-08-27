@@ -18,14 +18,14 @@ from app.theme_manager import ThemeManager
 from app.locale_manager import LocaleManager
 
 
-# --- Функция для установки AUMID ---
-def set_app_user_model_id(app_id: str):
-    """
-    Устанавливает AppUserModelID для текущего процесса.
-    Это необходимо для корректного отображения иконки и имени в уведомлениях Windows.
-    """
-    if sys.platform == 'win32':
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+# # --- Функция для установки AUMID ---
+# def set_app_user_model_id(app_id: str):
+#     """
+#     Устанавливает AppUserModelID для текущего процесса.
+#     Это необходимо для корректного отображения иконки и имени в уведомлениях Windows.
+#     """
+#     if sys.platform == 'win32':
+#         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
 
 # Вспомогательная функция для определения пути к ресурсам
 def _resource_path(relative_path):
@@ -45,7 +45,7 @@ def main():
     
     # Устанавливаем AUMID ПОСЛЕ создания QApplication.
     # Это вернет правильный заголовок "Undoit" в уведомления.
-    set_app_user_model_id(APP_ID)
+    # set_app_user_model_id(APP_ID)
     
     app.setQuitOnLastWindowClosed(False)
 
