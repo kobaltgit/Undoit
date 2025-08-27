@@ -38,13 +38,13 @@ def _resource_path(relative_path):
 
 def main():
     """Главная функция запуска приложения."""
-    APP_NAME = "Backdraft"
-    APP_ID = "Backdraft" 
+    APP_NAME = "Undoit"
+    APP_ID = "Undoit" 
     
     app = QApplication(sys.argv)
     
     # Устанавливаем AUMID ПОСЛЕ создания QApplication.
-    # Это вернет правильный заголовок "Backdraft" в уведомления.
+    # Это вернет правильный заголовок "Undoit" в уведомления.
     set_app_user_model_id(APP_ID)
     
     app.setQuitOnLastWindowClosed(False)
@@ -66,8 +66,8 @@ def main():
     icon_generator = IconGenerator()
 
     # --- Используем работающий метод загрузки иконки из файла .ico ---
-    DARK_APP_ICON_PATH = "resources/icons/backdraft_black_app.ico"
-    LIGHT_APP_ICON_PATH = "resources/icons/backdraft_light_app.ico"
+    DARK_APP_ICON_PATH = "resources/icons/undoit_black_app.ico"
+    LIGHT_APP_ICON_PATH = "resources/icons/undoit_light_app.ico"
     app_icon = icon_generator.get_app_icon(DARK_APP_ICON_PATH, LIGHT_APP_ICON_PATH)
 
     # Устанавливаем эту иконку глобально для приложения
@@ -96,7 +96,7 @@ def main():
             APP_NAME,
             QApplication.translate(
                 "main",
-                "Backdraft готов к работе.\\\\n\\\\n"
+                "Undoit готов к работе.\n\n"
                 "По умолчанию включено отслеживание вашего Рабочего стола. "
                 "Вы сможете изменить отслеживаемые папки в настройках."
             )

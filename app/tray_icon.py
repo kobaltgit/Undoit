@@ -44,7 +44,7 @@ class TrayIcon(QSystemTrayIcon):
 
         # 2. Устанавливаем иконку и меню
         self.setIcon(self.icon_generator.get_icon('normal'))
-        self.setToolTip(self.tr("Backdraft: Инициализация..."))
+        self.setToolTip(self.tr("Undoit: Инициализация..."))
         self.menu = QMenu()
         self._create_actions()
         self.setContextMenu(self.menu)
@@ -87,32 +87,32 @@ class TrayIcon(QSystemTrayIcon):
 
     @Slot(str, QSystemTrayIcon.MessageIcon)
     def on_config_notification(self, msg: str, icon: QSystemTrayIcon.MessageIcon):
-        self.show_notification(self.tr("Backdraft - Настройки"), msg, icon, topic="settings")
+        self.show_notification(self.tr("Undoit - Настройки"), msg, icon, topic="settings")
 
     @Slot(str, QSystemTrayIcon.MessageIcon)
     def on_locale_notification(self, msg: str, icon: QSystemTrayIcon.MessageIcon):
-        self.show_notification(self.tr("Backdraft - Локализация"), msg, icon, topic="settings")
+        self.show_notification(self.tr("Undoit - Локализация"), msg, icon, topic="settings")
 
     @Slot(str, QSystemTrayIcon.MessageIcon)
     def on_theme_notification(self, msg: str, icon: QSystemTrayIcon.MessageIcon):
-        self.show_notification(self.tr("Backdraft - Тема"), msg, icon, topic="settings")
+        self.show_notification(self.tr("Undoit - Тема"), msg, icon, topic="settings")
 
     @Slot(str)
     def _on_scan_progress(self, file_name: str):
-        self.show_notification(self.tr("Backdraft - Сканирование"), file_name, QSystemTrayIcon.Information, topic="scan_progress")
+        self.show_notification(self.tr("Undoit - Сканирование"), file_name, QSystemTrayIcon.Information, topic="scan_progress")
 
     @Slot(str, QSystemTrayIcon.MessageIcon)
     def _on_watcher_notification(self, msg: str, icon: QSystemTrayIcon.MessageIcon):
-        self.show_notification(self.tr("Backdraft - Отслеживание"), msg, icon)
+        self.show_notification(self.tr("Undoit - Отслеживание"), msg, icon)
         self._update_monitoring_ui_state()
 
     @Slot(str, QSystemTrayIcon.MessageIcon)
     def _on_history_notification(self, msg: str, icon: QSystemTrayIcon.MessageIcon):
-        self.show_notification(self.tr("Backdraft - История"), msg, icon)
+        self.show_notification(self.tr("Undoit - История"), msg, icon)
     
     @Slot(str, QSystemTrayIcon.MessageIcon)
     def _on_startup_action_completed(self, message: str, icon_type: QSystemTrayIcon.MessageIcon):
-        self.show_notification(self.tr("Backdraft - Автозапуск"), message, icon_type, topic="settings")
+        self.show_notification(self.tr("Undoit - Автозапуск"), message, icon_type, topic="settings")
 
     def _initial_startup_operations(self):
         self._update_monitoring_ui_state()
@@ -120,7 +120,7 @@ class TrayIcon(QSystemTrayIcon):
             self.history_manager.start_scan(self._current_watched_items) # <-- Передаем новую структуру
         else:
             self.show_notification(
-                self.tr("Backdraft - Отслеживание"),
+                self.tr("Undoit - Отслеживание"),
                 self.tr("Нет настроенных элементов для отслеживания. Добавьте их в настройках."),
                 QSystemTrayIcon.Information
             )
@@ -175,21 +175,21 @@ class TrayIcon(QSystemTrayIcon):
     def _update_monitoring_ui_state(self):
         if self.history_manager._is_scan_running:
             self.setIcon(self.icon_generator.get_icon('saving'))
-            self.setToolTip(self.tr("Backdraft: Идет сканирование файлов..."))
+            self.setToolTip(self.tr("Undoit: Идет сканирование файлов..."))
             self.toggle_watch_action.setText(self.tr("Сканирование..."))
             self.toggle_watch_action.setEnabled(False)
             return
 
         if self.history_manager._is_cleanup_running:
             self.setIcon(self.icon_generator.get_icon('error'))
-            self.setToolTip(self.tr("Backdraft: Идет очистка истории..."))
+            self.setToolTip(self.tr("Undoit: Идет очистка истории..."))
             self.toggle_watch_action.setText(self.tr("Очистка истории..."))
             self.toggle_watch_action.setEnabled(False)
             return
 
         if not self._current_watched_items: # <-- Проверка по новой переменной
             self.setIcon(self.icon_generator.get_icon('inactive'))
-            self.setToolTip(self.tr("Backdraft: Нет элементов для отслеживания."))
+            self.setToolTip(self.tr("Undoit: Нет элементов для отслеживания."))
             self.toggle_watch_action.setText(self.tr("Нет элементов для отслеживания"))
             self.toggle_watch_action.setChecked(False)
             self.toggle_watch_action.setEnabled(False)
@@ -199,19 +199,19 @@ class TrayIcon(QSystemTrayIcon):
 
         if self.watcher.is_paused():
             self.setIcon(self.icon_generator.get_icon('paused'))
-            self.setToolTip(self.tr("Backdraft: Мониторинг приостановлен."))
+            self.setToolTip(self.tr("Undoit: Мониторинг приостановлен."))
             self.toggle_watch_action.setText(self.tr("Возобновить отслеживание"))
             self.toggle_watch_action.setChecked(True)
             self.toggle_watch_action.setEnabled(True)
         elif self.watcher.is_running():
             self.setIcon(self.icon_generator.get_icon('normal'))
-            self.setToolTip(self.tr("Backdraft: Мониторинг активен."))
+            self.setToolTip(self.tr("Undoit: Мониторинг активен."))
             self.toggle_watch_action.setText(self.tr("Приостановить отслеживание"))
             self.toggle_watch_action.setChecked(False)
             self.toggle_watch_action.setEnabled(True)
         else:
             self.setIcon(self.icon_generator.get_icon('inactive'))
-            self.setToolTip(self.tr("Backdraft: Мониторинг неактивен."))
+            self.setToolTip(self.tr("Undoit: Мониторинг неактивен."))
             self.toggle_watch_action.setText(self.tr("Возобновить отслеживание"))
             self.toggle_watch_action.setEnabled(True)
 
@@ -232,7 +232,7 @@ class TrayIcon(QSystemTrayIcon):
                 self.watcher.start()
             else:
                 self.show_notification(
-                    self.tr("Backdraft - Мониторинг"),
+                    self.tr("Undoit - Мониторинг"),
                     self.tr("Нет элементов для отслеживания. Мониторинг не может быть возобновлен."),
                     QSystemTrayIcon.Warning
                 )

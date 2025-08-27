@@ -21,7 +21,7 @@ class ConfigManager(QObject):
 
     config_notification = Signal(str, QSystemTrayIcon.MessageIcon)
 
-    CONFIG_DIR_NAME = "Backdraft"
+    CONFIG_DIR_NAME = "Undoit"
     CONFIG_FILE_NAME = "config.json"
 
     def __init__(self, parent=None):

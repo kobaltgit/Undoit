@@ -162,8 +162,8 @@
     <name>HistoryWindow</name>
     <message>
         <location filename="../../app/ui/main_window.py" line="23"/>
-        <source>Backdraft - История версий</source>
-        <translation>Backdraft - История версий</translation>
+        <source>Undoit - История версий</source>
+        <translation>Undoit - История версий</translation>
     </message>
     <message>
         <location filename="../../app/ui/main_window.py" line="38"/>
@@ -321,27 +321,27 @@
     <name>QApplication</name>
     <message>
         <location filename="../../app/main.py" line="59"/>
-        <source>Backdraft готов к работе.
+        <source>Undoit готов к работе.
 
 По умолчанию включено отслеживание вашего Рабочего стола. Вы сможете изменить отслеживаемые папки в настройках.</source>
-        <translation>Backdraft готов к работе.
+        <translation>Undoit готов к работе.
 
 По умолчанию включено отслеживание вашего Рабочего стола. Вы сможете изменить отслеживаемые папки в настройках.</translation>
     </message>
     <message>
         <location filename="../../app/main.py" line="75"/>
-        <source>Backdraft - Настройки</source>
-        <translation>Backdraft - Настройки</translation>
+        <source>Undoit - Настройки</source>
+        <translation>Undoit - Настройки</translation>
     </message>
     <message>
         <location filename="../../app/main.py" line="78"/>
-        <source>Backdraft - Локализация</source>
-        <translation>Backdraft - Локализация</translation>
+        <source>Undoit - Локализация</source>
+        <translation>Undoit - Локализация</translation>
     </message>
     <message>
         <location filename="../../app/main.py" line="81"/>
-        <source>Backdraft - Тема</source>
-        <translation>Backdraft - Тема</translation>
+        <source>Undoit - Тема</source>
+        <translation>Undoit - Тема</translation>
     </message>
 </context>
 <context>
@@ -377,8 +377,8 @@
     <name>SettingsWindow</name>
     <message>
         <location filename="../../app/ui/settings_window.py" line="111"/>
-        <source>Backdraft - Настройки</source>
-        <translation>Backdraft - Настройки</translation>
+        <source>Undoit - Настройки</source>
+        <translation>Undoit - Настройки</translation>
     </message>
     <message>
         <location filename="../../app/ui/settings_window.py" line="115"/>
@@ -557,18 +557,18 @@
     <name>TrayIcon</name>
     <message>
         <location filename="../../app/tray_icon.py" line="41"/>
-        <source>Backdraft: Инициализация...</source>
-        <translation>Backdraft: Инициализация...</translation>
+        <source>Undoit: Инициализация...</source>
+        <translation>Undoit: Инициализация...</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="76"/>
-        <source>Backdraft - История</source>
-        <translation>Backdraft - История</translation>
+        <source>Undoit - История</source>
+        <translation>Undoit - История</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="80"/>
-        <source>Backdraft - Отслеживание</source>
-        <translation>Backdraft - Отслеживание</translation>
+        <source>Undoit - Отслеживание</source>
+        <translation>Undoit - Отслеживание</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="97"/>
@@ -598,8 +598,8 @@
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="139"/>
-        <source>Backdraft: Идет сканирование файлов...</source>
-        <translation>Backdraft: Идет сканирование файлов...</translation>
+        <source>Undoit: Идет сканирование файлов...</source>
+        <translation>Undoit: Идет сканирование файлов...</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="140"/>
@@ -608,8 +608,8 @@
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="146"/>
-        <source>Backdraft: Идет очистка истории...</source>
-        <translation>Backdraft: Идет очистка истории...</translation>
+        <source>Undoit: Идет очистка истории...</source>
+        <translation>Undoit: Идет очистка истории...</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="147"/>
@@ -618,8 +618,8 @@
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="152"/>
-        <source>Backdraft: Нет папок для отслеживания.</source>
-        <translation>Backdraft: Нет папок для отслеживания.</translation>
+        <source>Undoit: Нет папок для отслеживания.</source>
+        <translation>Undoit: Нет папок для отслеживания.</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="153"/>
@@ -628,8 +628,8 @@
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="159"/>
-        <source>Backdraft: Мониторинг приостановлен.</source>
-        <translation>Backdraft: Мониторинг приостановлен.</translation>
+        <source>Undoit: Мониторинг приостановлен.</source>
+        <translation>Undoit: Мониторинг приостановлен.</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="160"/>
@@ -640,13 +640,13 @@
     <message>
         <location filename="../../app/tray_icon.py" line="163"/>
         <location filename="../../app/tray_icon.py" line="236"/>
-        <source>Backdraft: Мониторинг активен.</source>
-        <translation>Backdraft: Мониторинг активен.</translation>
+        <source>Undoit: Мониторинг активен.</source>
+        <translation>Undoit: Мониторинг активен.</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="172"/>
-        <source>Backdraft: Мониторинг запускается...</source>
-        <translation>Backdraft: Мониторинг запускается...</translation>
+        <source>Undoit: Мониторинг запускается...</source>
+        <translation>Undoit: Мониторинг запускается...</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="237"/>
@@ -670,8 +670,8 @@
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="288"/>
-        <source>Backdraft - Автозапуск</source>
-        <translation>Backdraft - Автозапуск</translation>
+        <source>Undoit - Автозапуск</source>
+        <translation>Undoit - Автозапуск</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="299"/>

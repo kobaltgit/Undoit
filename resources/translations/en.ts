@@ -162,8 +162,8 @@
     <name>HistoryWindow</name>
     <message>
         <location filename="../../app/ui/main_window.py" line="23"/>
-        <source>Backdraft - История версий</source>
-        <translation>Backdraft - Version History</translation>
+        <source>Undoit - История версий</source>
+        <translation>Undoit - Version History</translation>
     </message>
     <message>
         <location filename="../../app/ui/main_window.py" line="38"/>
@@ -321,27 +321,27 @@ The current version of the file will be overwritten (but saved in history first)
     <name>QApplication</name>
     <message>
         <location filename="../../app/main.py" line="59"/>
-        <source>Backdraft готов к работе.
+        <source>Undoit готов к работе.
 
 По умолчанию включено отслеживание вашего Рабочего стола. Вы сможете изменить отслеживаемые папки в настройках.</source>
-        <translation>Backdraft is ready to use.
+        <translation>Undoit is ready to use.
 
 By default, your Desktop is being monitored. You can change watched folders in settings.</translation>
     </message>
     <message>
         <location filename="../../app/main.py" line="75"/>
-        <source>Backdraft - Настройки</source>
-        <translation>Backdraft - Settings</translation>
+        <source>Undoit - Настройки</source>
+        <translation>Undoit - Settings</translation>
     </message>
     <message>
         <location filename="../../app/main.py" line="78"/>
-        <source>Backdraft - Локализация</source>
-        <translation>Backdraft - Localization</translation>
+        <source>Undoit - Локализация</source>
+        <translation>Undoit - Localization</translation>
     </message>
     <message>
         <location filename="../../app/main.py" line="81"/>
-        <source>Backdraft - Тема</source>
-        <translation>Backdraft - Theme</translation>
+        <source>Undoit - Тема</source>
+        <translation>Undoit - Theme</translation>
     </message>
 </context>
 <context>
@@ -377,8 +377,8 @@ By default, your Desktop is being monitored. You can change watched folders in s
     <name>SettingsWindow</name>
     <message>
         <location filename="../../app/ui/settings_window.py" line="111"/>
-        <source>Backdraft - Настройки</source>
-        <translation>Backdraft - Settings</translation>
+        <source>Undoit - Настройки</source>
+        <translation>Undoit - Settings</translation>
     </message>
     <message>
         <location filename="../../app/ui/settings_window.py" line="115"/>
@@ -557,18 +557,18 @@ Administrator privileges may be required.</translation>
     <name>TrayIcon</name>
     <message>
         <location filename="../../app/tray_icon.py" line="41"/>
-        <source>Backdraft: Инициализация...</source>
-        <translation>Backdraft: Initializing...</translation>
+        <source>Undoit: Инициализация...</source>
+        <translation>Undoit: Initializing...</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="76"/>
-        <source>Backdraft - История</source>
-        <translation>Backdraft - History</translation>
+        <source>Undoit - История</source>
+        <translation>Undoit - History</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="80"/>
-        <source>Backdraft - Отслеживание</source>
-        <translation>Backdraft - Monitoring</translation>
+        <source>Undoit - Отслеживание</source>
+        <translation>Undoit - Monitoring</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="97"/>
@@ -598,8 +598,8 @@ Administrator privileges may be required.</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="139"/>
-        <source>Backdraft: Идет сканирование файлов...</source>
-        <translation>Backdraft: Scanning files...</translation>
+        <source>Undoit: Идет сканирование файлов...</source>
+        <translation>Undoit: Scanning files...</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="140"/>
@@ -608,8 +608,8 @@ Administrator privileges may be required.</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="146"/>
-        <source>Backdraft: Идет очистка истории...</source>
-        <translation>Backdraft: Cleaning history...</translation>
+        <source>Undoit: Идет очистка истории...</source>
+        <translation>Undoit: Cleaning history...</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="147"/>
@@ -618,8 +618,8 @@ Administrator privileges may be required.</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="152"/>
-        <source>Backdraft: Нет папок для отслеживания.</source>
-        <translation>Backdraft: No folders to watch.</translation>
+        <source>Undoit: Нет папок для отслеживания.</source>
+        <translation>Undoit: No folders to watch.</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="153"/>
@@ -628,8 +628,8 @@ Administrator privileges may be required.</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="159"/>
-        <source>Backdraft: Мониторинг приостановлен.</source>
-        <translation>Backdraft: Monitoring paused.</translation>
+        <source>Undoit: Мониторинг приостановлен.</source>
+        <translation>Undoit: Monitoring paused.</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="160"/>
@@ -640,13 +640,13 @@ Administrator privileges may be required.</translation>
     <message>
         <location filename="../../app/tray_icon.py" line="163"/>
         <location filename="../../app/tray_icon.py" line="236"/>
-        <source>Backdraft: Мониторинг активен.</source>
-        <translation>Backdraft: Monitoring active.</translation>
+        <source>Undoit: Мониторинг активен.</source>
+        <translation>Undoit: Monitoring active.</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="172"/>
-        <source>Backdraft: Мониторинг запускается...</source>
-        <translation>Backdraft: Monitoring starting...</translation>
+        <source>Undoit: Мониторинг запускается...</source>
+        <translation>Undoit: Monitoring starting...</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="237"/>
@@ -670,8 +670,8 @@ Administrator privileges may be required.</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="288"/>
-        <source>Backdraft - Автозапуск</source>
-        <translation>Backdraft - Startup</translation>
+        <source>Undoit - Автозапуск</source>
+        <translation>Undoit - Startup</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="299"/>

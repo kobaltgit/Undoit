@@ -22,7 +22,7 @@ class HistoryWindow(QMainWindow):
         super().__init__(parent)
         self.history_manager = history_manager
 
-        self.setWindowTitle(self.tr("Backdraft - История версий")) # <-- Размечено для перевода
+        self.setWindowTitle(self.tr("Undoit - История версий")) # <-- Размечено для перевода
         self.setWindowIcon(app_icon)
         self.resize(1200, 700)
 

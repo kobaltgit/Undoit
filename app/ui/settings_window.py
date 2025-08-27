@@ -83,7 +83,7 @@ class SettingsWindow(QDialog):
         super().__init__(parent)
         self.config_manager = config_manager
 
-        self.setWindowTitle(self.tr("Backdraft - Настройки"))
+        self.setWindowTitle(self.tr("Undoit - Настройки"))
         self.setWindowIcon(app_icon)
         self.setMinimumWidth(750) # Увеличим минимальную ширину для нового интерфейса
 
