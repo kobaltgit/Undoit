@@ -8,9 +8,16 @@ import threading
 from datetime import datetime
 from pathlib import Path
 from typing import List, Tuple, Optional, Dict
+import tempfile 
 
 from PySide6.QtCore import QObject, Signal, Slot, QThread
 from PySide6.QtWidgets import QSystemTrayIcon
+
+# --- Импорты для обработки файлов ---
+from PIL import Image 
+import fitz 
+from docx import Document 
+from openpyxl import load_workbook 
 
 
 class ScanWorker(QObject):
@@ -40,11 +47,11 @@ class ScanWorker(QObject):
             )
             for item in self.items_to_scan:
                 if self._should_stop: break
-                
+
                 path_str = item.get("path")
                 item_type = item.get("type")
                 exclusions = item.get("exclusions", [])
-                
+
                 path = Path(path_str)
                 if not path.exists():
                     self.scan_notification.emit(
@@ -63,10 +70,10 @@ class ScanWorker(QObject):
                 elif item_type == "folder":
                     # Преобразуем строки исключений в Path объекты для корректной работы
                     exclusion_paths = {Path(ex).resolve() for ex in exclusions}
-                    
+
                     for root, dirs, files in os.walk(path):
                         if self._should_stop: break
-                        
+
                         # --- Эффективная логика исключений ---
                         # Модифицируем 'dirs' на месте, чтобы os.walk не заходил в исключенные папки
                         dirs[:] = [d for d in dirs if Path(root, d).resolve() not in exclusion_paths]
@@ -145,6 +152,13 @@ class HistoryManager(QObject):
     DB_NAME = "metadata.db"
     OBJECTS_DIR = "objects"
 
+    # --- Списки поддерживаемых расширений для предпросмотра ---
+    TEXT_EXTENSIONS = {'.txt', '.log', '.md', '.py', '.json', '.xml', '.html', '.css', '.js', '.csv'}
+    IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.webp', '.tiff', '.tif', '.svg'}
+    PDF_EXTENSIONS = {'.pdf'}
+    DOCX_EXTENSIONS = {'.docx'}
+    XLSX_EXTENSIONS = {'.xlsx'}
+
     def __init__(self, storage_path: Path, parent=None):
         super().__init__(parent)
         self.storage_path = storage_path
@@ -164,6 +178,7 @@ class HistoryManager(QObject):
         # --- Система асинхронной очереди задач для предотвращения deadlock ---
         self._pending_operation: Optional[str] = None
         self._pending_args: Optional[tuple] = None
+        self._temp_preview_files: List[Path] = [] # Список временных файлов для очистки
 
     def _calculate_hash(self, file_path: Path) -> str | None:
         try:
@@ -225,7 +240,7 @@ class HistoryManager(QObject):
         """Выполняет отложенную операцию после завершения текущей."""
         if not self._pending_operation:
             return
-        
+
         op = self._pending_operation
         args = self._pending_args
         self._pending_operation = None
@@ -246,10 +261,10 @@ class HistoryManager(QObject):
             self._scan_thread.wait() # Безопасно ждать здесь, т.к. мы в слоте главного потока
             self._scan_thread.deleteLater()
         self._scan_worker, self._scan_thread = None, None
-        
-        self.file_list_updated.emit()
+
+        # self.file_list_updated.emit() # Теперь обновляется в _add_version_from_path
         self.scan_finished.emit()
-        
+
         self._execute_pending_operation()
 
     @Slot()
@@ -262,10 +277,10 @@ class HistoryManager(QObject):
             self._cleanup_thread.wait() # Безопасно ждать здесь
             self._cleanup_thread.deleteLater()
         self._cleanup_worker, self._cleanup_thread = None, None
-        
-        self.file_list_updated.emit()
+
+        self.file_list_updated.emit() # Очистка может удалить файлы, поэтому обновляем список
         self.cleanup_finished.emit()
-        
+
         self._execute_pending_operation()
 
     def add_initial_version(self, file_path: Path):
@@ -274,6 +289,7 @@ class HistoryManager(QObject):
             cursor.execute("SELECT id FROM tracked_files WHERE original_path = ?", (str(file_path),))
             if cursor.fetchone():
                 return
+            # _add_version_from_path теперь сам испускает сигналы, если файл новый
             self._add_version_from_path(file_path)
 
     @Slot(str)
@@ -295,6 +311,7 @@ class HistoryManager(QObject):
 
             result_tuple = self._add_version_from_path(file_path, file_hash)
             if result_tuple:
+                # _add_version_from_path уже испустил file_list_updated если was_new_file
                 was_new_file, file_id = result_tuple
             else:
                 error_message = self.tr("Не удалось сохранить версию файла {0}.").format(file_path.name)
@@ -302,10 +319,11 @@ class HistoryManager(QObject):
         if error_message:
             self.history_notification.emit(error_message, QSystemTrayIcon.Critical)
             return
-        
+
+        # version_added всегда испускается, если версия добавлена (новый или старый файл)
         self.version_added.emit(file_id)
         if was_new_file:
-            self.file_list_updated.emit()
+            # self.file_list_updated.emit() # Теперь испускается в _add_version_from_path
             self.history_notification.emit(self.tr("Добавлен новый файл для отслеживания: {0}").format(file_path.name), QSystemTrayIcon.Information)
         else:
             self.history_notification.emit(self.tr("Сохранена новая версия файла: {0}").format(file_path.name), QSystemTrayIcon.Information)
@@ -325,6 +343,127 @@ class HistoryManager(QObject):
     def get_object_path(self, sha256_hash: str) -> Path | None:
         object_path = self.objects_path / sha256_hash[:2] / sha256_hash[2:]
         return object_path if object_path.exists() else None
+
+    def _add_temp_preview_file(self, temp_file_path: Path):
+        """Добавляет временный файл предпросмотра в список для последующей очистки."""
+        self._temp_preview_files.append(temp_file_path)
+
+    def _cleanup_temp_preview_files(self):
+        """Удаляет все временные файлы предпросмотра."""
+        for temp_file in self._temp_preview_files:
+            try:
+                if temp_file.exists():
+                    os.remove(temp_file)
+            except OSError as e:
+                # Можно добавить логирование, но уведомление пользователя здесь не нужно
+                pass
+        self._temp_preview_files.clear()
+
+
+    def get_file_content_for_preview(self, object_path: Path, original_file_extension: str) -> Tuple[str, Optional[str]]:
+        """
+        Извлекает содержимое файла для предпросмотра.
+        Возвращает кортеж (тип_контента, данные_контента).
+        Тип контента: "text", "image", "error", "unsupported".
+        Данные контента: строка для текста, путь к временному изображению.
+        """
+        file_extension = original_file_extension.lower()
+        extracted_content = None
+
+        try:
+            if file_extension in self.TEXT_EXTENSIONS:
+                with open(object_path, 'r', encoding='utf-8', errors='replace') as f:
+                    extracted_content = f.read(1024 * 10)
+                if extracted_content:
+                    return "text", extracted_content
+                else:
+                    return "unsupported", self.tr("Файл пуст или текст не найден.")
+
+            elif file_extension in self.IMAGE_EXTENSIONS:
+                return "image", str(object_path)
+
+            elif file_extension in self.PDF_EXTENSIONS:
+                try:
+                    doc = fitz.open(object_path)
+
+                    # --- Попытка извлечь текст ---
+                    pdf_text_content = ""
+                    for page_num in range(doc.page_count):
+                        page = doc[page_num]
+                        pdf_text_content += page.get_text()
+                        if len(pdf_text_content) > 1024 * 10: # Ограничиваем размер извлеченного текста
+                            pdf_text_content = pdf_text_content[:1024 * 10] + "\n..."
+                            break
+
+                    if pdf_text_content.strip(): # Если текст найден и он не пустой
+                        doc.close()
+                        return "text", pdf_text_content
+
+                    # --- Если текст не найден (например, PDF только из изображений), рендерим первую страницу ---
+                    self.history_notification.emit(
+                        self.tr("Текст не найден в PDF файле. Попытка отобразить первую страницу как изображение."),
+                        QSystemTrayIcon.Information
+                    )
+                    page = doc[0] # Берем первую страницу
+                    pix = page.get_pixmap(matrix=fitz.Matrix(150/72, 150/72)) # Рендерим с 150 DPI
+
+                    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+                        temp_img_path = Path(tmp.name)
+                    pix.save(str(temp_img_path))
+
+                    doc.close()
+                    self._add_temp_preview_file(temp_img_path)
+
+                    return "image", str(temp_img_path) 
+
+                except Exception as e:
+                    if 'doc' in locals() and not doc.is_closed:
+                        doc.close()
+                    return "text", self.tr("Не удалось открыть PDF-файл для предпросмотра: {0}. Возможно, он поврежден или защищен.").format(e)
+
+            elif file_extension in self.DOCX_EXTENSIONS:
+                try:
+                    document = Document(object_path)
+                    full_text = [para.text for para in document.paragraphs if para.text.strip()] # Собираем только непустые параграфы
+                    extracted_content = "\n".join(full_text[:50]) + ("\n..." if len(full_text) > 50 else "")
+
+                    if extracted_content.strip():
+                        return "text", extracted_content
+                    else:
+                        return "unsupported", self.tr("Текст не найден в DOCX файле.")
+                except Exception as e:
+                    return "text", self.tr("Не удалось открыть DOCX-файл для предпросмотра: {0}. Возможно, он поврежден.").format(e)
+
+            elif file_extension in self.XLSX_EXTENSIONS:
+                try:
+                    workbook = load_workbook(object_path, read_only=True, data_only=True)
+                    sheet_names = workbook.sheetnames
+
+                    preview_lines = []
+                    if sheet_names:
+                        preview_lines.append(f"Листы: {', '.join(sheet_names)}")
+
+                        sheet = workbook[sheet_names[0]]
+                        preview_lines.append(f"Первые 10 строк листа '{sheet_names[0]}':")
+                        for i, row in enumerate(sheet.iter_rows(min_row=1, max_row=10)):
+                            row_values = [str(cell.value) if cell.value is not None else "" for cell in row]
+                            preview_lines.append(f"{', '.join(row_values)}")
+
+                    extracted_content = "\n".join(preview_lines)
+
+                    if extracted_content.strip():
+                        return "text", extracted_content
+                    else:
+                        return "unsupported", self.tr("Данные не найдены в XLSX файле.")
+                except Exception as e:
+                    return "text", self.tr("Не удалось открыть XLSX-файл для предпросмотра: {0}. Возможно, он поврежден.").format(e)
+
+            else:
+                return "unsupported", self.tr("Предпросмотр недоступен для этого типа файла.")
+
+        except Exception as e:
+            return "error", self.tr("Критическая ошибка при предпросмотре файла: {0}").format(e)
+
 
     def _add_version_from_path(self, file_path: Path, precalculated_hash: str = None) -> Optional[Tuple[bool, int]]:
         file_hash = precalculated_hash or self._calculate_hash(file_path)
@@ -354,6 +493,9 @@ class HistoryManager(QObject):
         cursor.execute("INSERT INTO versions (file_id, timestamp, sha256_hash, file_size) VALUES (?, ?, ?, ?)", (file_id, timestamp, file_hash, file_size))
         try:
             self._db_connection.commit()
+            if was_new_file:
+                self.version_added.emit(file_id)
+                self.file_list_updated.emit()
             return was_new_file, file_id
         except sqlite3.Error:
             self._db_connection.rollback()
@@ -435,3 +577,5 @@ class HistoryManager(QObject):
         if self._db_connection:
             with self._db_connection_lock:
                 self._db_connection.close()
+
+        self._cleanup_temp_preview_files()

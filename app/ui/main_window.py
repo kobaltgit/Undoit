@@ -3,13 +3,15 @@
 import shutil
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
-from PySide6.QtCore import Qt, Slot
+from PySide6.QtCore import Qt, Slot, QSize, QEvent # Добавлен QEvent для resizeEvent
 from PySide6.QtWidgets import (QFileDialog, QListWidgetItem, QMainWindow,
                                QMessageBox, QPushButton, QWidget, QHBoxLayout,
                                QSplitter, QListWidget, QTextEdit, QVBoxLayout,
-                               QLabel, QLineEdit)
-from PySide6.QtGui import QIcon
+                               QLabel, QLineEdit, QStackedWidget)
+from PySide6.QtGui import QIcon, QPixmap, QResizeEvent # Добавлен QResizeEvent
+
 
 from app.history_manager import HistoryManager
 
@@ -22,12 +24,15 @@ class HistoryWindow(QMainWindow):
         super().__init__(parent)
         self.history_manager = history_manager
 
-        self.setWindowTitle(self.tr("Undoit - История версий")) # <-- Размечено для перевода
+        self.setWindowTitle(self.tr("Undoit - История версий"))
         self.setWindowIcon(app_icon)
         self.resize(1200, 700)
 
         # Сохраняем полный список файлов для поиска
         self._all_tracked_files_data = [] # [(file_id, full_path), ...]
+        self.current_object_path: Optional[Path] = None # Путь к файлу в хранилище для текущей выбранной версии
+        self.current_original_file_path: Optional[Path] = None # Оригинальный путь к файлу для текущей выбранной версии
+        self._current_original_pixmap: Optional[QPixmap] = None # Оригинальное изображение для предпросмотра (немасштабированное)
 
         self._init_ui()
         self._load_styles()
@@ -46,12 +51,12 @@ class HistoryWindow(QMainWindow):
         files_layout.setSpacing(8)
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText(self.tr("Поиск файлов...")) # <-- Размечено для перевода
+        self.search_input.setPlaceholderText(self.tr("Поиск файлов..."))
         self.search_input.setMinimumHeight(32)
 
         self.files_list = QListWidget()
 
-        files_layout.addWidget(QLabel(self.tr("Отслеживаемые файлы:"))) # <-- Размечено для перевода
+        files_layout.addWidget(QLabel(self.tr("Отслеживаемые файлы:")))
         files_layout.addWidget(self.search_input)
         files_layout.addWidget(self.files_list)
 
@@ -63,7 +68,7 @@ class HistoryWindow(QMainWindow):
 
         self.versions_list = QListWidget()
 
-        versions_layout.addWidget(QLabel(self.tr("Сохраненные версии:"))) # <-- Размечено для перевода
+        versions_layout.addWidget(QLabel(self.tr("Сохраненные версии:")))
         versions_layout.addWidget(self.versions_list)
 
         # --- Панель 3: Превью и действия ---
@@ -72,14 +77,33 @@ class HistoryWindow(QMainWindow):
         preview_layout.setContentsMargins(0, 0, 0, 0)
         preview_layout.setSpacing(8)
 
-        self.preview_text = QTextEdit()
-        self.preview_text.setReadOnly(True)
-        self.preview_text.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        # --- Заменяем QTextEdit на QStackedWidget для разных типов предпросмотра ---
+        self.preview_stacked_widget = QStackedWidget()
+        self.preview_stacked_widget.setObjectName("PreviewStackedWidget")
+
+        self.text_preview_widget = QTextEdit()
+        self.text_preview_widget.setReadOnly(True)
+        self.text_preview_widget.setLineWrapMode(QTextEdit.LineWrapMode.NoWrap)
+        self.text_preview_widget.setObjectName("TextPreviewWidget") # Для стилей
+
+        self.image_preview_widget = QLabel()
+        self.image_preview_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        # self.image_preview_widget.setScaledContents(True) # Убрано, т.к. будем масштабировать вручную
+        self.image_preview_widget.setObjectName("ImagePreviewWidget") # Для стилей
+
+        self.info_preview_widget = QLabel() # Для PDF, неподдерживаемых файлов или ошибок
+        self.info_preview_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.info_preview_widget.setWordWrap(True) # Перенос слов
+        self.info_preview_widget.setObjectName("InfoPreviewWidget") # Для стилей
+
+        self.preview_stacked_widget.addWidget(self.text_preview_widget) # Индекс 0
+        self.preview_stacked_widget.addWidget(self.image_preview_widget) # Индекс 1
+        self.preview_stacked_widget.addWidget(self.info_preview_widget) # Индекс 2
 
         # Создаем контейнер для кнопок
         buttons_layout = QHBoxLayout()
-        self.save_as_button = QPushButton(self.tr("Сохранить как...")) # <-- Размечено для перевода
-        self.restore_button = QPushButton(self.tr("Восстановить эту версию")) # <-- Размечено для перевода
+        self.save_as_button = QPushButton(self.tr("Сохранить как..."))
+        self.restore_button = QPushButton(self.tr("Восстановить эту версию"))
 
         # Кнопки изначально неактивны
         self.save_as_button.setEnabled(False)
@@ -88,8 +112,8 @@ class HistoryWindow(QMainWindow):
         buttons_layout.addWidget(self.save_as_button)
         buttons_layout.addWidget(self.restore_button)
 
-        preview_layout.addWidget(QLabel(self.tr("Предпросмотр:"))) # <-- Размечено для перевода
-        preview_layout.addWidget(self.preview_text)
+        preview_layout.addWidget(QLabel(self.tr("Предпросмотр:")))
+        preview_layout.addWidget(self.preview_stacked_widget) # Добавляем стек вместо QTextEdit
         preview_layout.addLayout(buttons_layout)
 
         # --- Сборка панелей с помощью QSplitter ---
@@ -110,7 +134,7 @@ class HistoryWindow(QMainWindow):
         self.versions_list.currentItemChanged.connect(self._on_version_selected)
         self.save_as_button.clicked.connect(self._on_save_as)
         self.restore_button.clicked.connect(self._on_restore)
-        self.search_input.textChanged.connect(self._on_search_text_changed) # <-- Новое соединение для поиска
+        self.search_input.textChanged.connect(self._on_search_text_changed)
 
     @Slot()
     def refresh_file_list(self):
@@ -153,9 +177,15 @@ class HistoryWindow(QMainWindow):
             # Если выбранный элемент скрыт, сбрасываем выбор и очищаем версии/превью
             self.files_list.setCurrentItem(None)
             self.versions_list.clear()
-            self.preview_text.clear()
+            # Очищаем все виджеты предпросмотра и деактивируем кнопки
+            self.text_preview_widget.clear()
+            self.image_preview_widget.clear()
+            self.info_preview_widget.clear()
             self.save_as_button.setEnabled(False)
             self.restore_button.setEnabled(False)
+            self.current_object_path = None
+            self.current_original_file_path = None
+            self._current_original_pixmap = None # Сброс оригинального Pixmap
 
 
     @Slot(str)
@@ -192,9 +222,15 @@ class HistoryWindow(QMainWindow):
             # сбрасываем выбор и очищаем панели версий/превью.
             self.files_list.setCurrentItem(None)
             self.versions_list.clear()
-            self.preview_text.clear()
+            # Очищаем все виджеты предпросмотра
+            self.text_preview_widget.clear()
+            self.image_preview_widget.clear()
+            self.info_preview_widget.clear()
             self.save_as_button.setEnabled(False)
             self.restore_button.setEnabled(False)
+            self.current_object_path = None
+            self.current_original_file_path = None
+            self._current_original_pixmap = None # Сброс оригинального Pixmap
 
     @Slot(int)
     def refresh_version_list_if_selected(self, updated_file_id: int):
@@ -211,11 +247,17 @@ class HistoryWindow(QMainWindow):
     def _on_file_selected(self, current_item: QListWidgetItem, previous_item: QListWidgetItem):
         """Слот, вызываемый при выборе файла в левом списке."""
         self.versions_list.clear()
-        self.preview_text.clear()
+        self.text_preview_widget.clear()
+        self.image_preview_widget.clear()
+        self.info_preview_widget.clear()
+        self.current_object_path = None # Сбрасываем путь к объекту
+        self.current_original_file_path = None # Сбрасываем оригинальный путь
+        self._current_original_pixmap = None # Сброс оригинального Pixmap
 
         if not current_item:
             self.save_as_button.setEnabled(False)
             self.restore_button.setEnabled(False)
+            self.preview_stacked_widget.setCurrentIndex(0) # Показываем текстовый предпросмотр по умолчанию (пустой)
             return
 
         file_id = current_item.data(Qt.ItemDataRole.UserRole)
@@ -227,7 +269,6 @@ class HistoryWindow(QMainWindow):
 
             formatted_size = self._format_size(file_size)
 
-            # <-- Форматированная строка для перевода
             item = QListWidgetItem(self.tr("{0} ({1})").format(formatted_time, formatted_size))
             item.setData(Qt.ItemDataRole.UserRole, sha256_hash)
             self.versions_list.addItem(item)
@@ -239,71 +280,151 @@ class HistoryWindow(QMainWindow):
 
     def _on_version_selected(self, current_item: QListWidgetItem, previous_item: QListWidgetItem):
         """Слот, вызываемый при выборе версии в центральном списке."""
-        self.preview_text.clear()
+        # Сбрасываем все предпросмотры и текущий путь к объекту
+        self.text_preview_widget.clear()
+        self.image_preview_widget.clear()
+        self.info_preview_widget.clear()
+        self.current_object_path = None
+        self.current_original_file_path = None
+        self._current_original_pixmap = None # Сброс оригинального Pixmap
 
         is_version_selected = current_item is not None
         self.save_as_button.setEnabled(is_version_selected)
         self.restore_button.setEnabled(is_version_selected)
 
         if not is_version_selected:
+            self.preview_stacked_widget.setCurrentIndex(0) # Показываем текстовый предпросмотр по умолчанию (пустой)
             return
 
         sha256_hash = current_item.data(Qt.ItemDataRole.UserRole)
         object_path = self.history_manager.get_object_path(sha256_hash)
+        self.current_object_path = object_path # Сохраняем путь для кнопок "Сохранить как" / "Восстановить"
 
-        if not object_path:
-            # <-- Сообщение для перевода
-            self.preview_text.setText(self.tr("Ошибка: не удалось найти файл с хешем {0}...").format(sha256_hash[:8]))
+        file_item = self.files_list.currentItem()
+        if not file_item:
+            self._show_preview_message(self.tr("Ошибка: не выбран оригинальный файл."))
             return
 
-        try:
-            with open(object_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            self.preview_text.setText(content)
-        except (UnicodeDecodeError, IOError):
-            self.preview_text.setText(self.tr("Предпросмотр недоступен для этого типа файла.")) # <-- Размечено для перевода
+        original_path_str = file_item.toolTip()
+        self.current_original_file_path = Path(original_path_str)
+        original_file_extension = self.current_original_file_path.suffix
+
+
+        if not object_path:
+            self._show_preview_message(
+                self.tr("Ошибка: не удалось найти файл с хешем {0}...").format(sha256_hash[:8])
+            )
+            return
+
+        content_type, content_data = self.history_manager.get_file_content_for_preview(
+            object_path, original_file_extension
+        )
+
+        if content_type == "text":
+            self.text_preview_widget.setText(content_data)
+            self.preview_stacked_widget.setCurrentIndex(0) # Показываем QTextEdit
+        elif content_type == "image":
+            # Загружаем оригинальный QPixmap
+            pixmap = QPixmap(str(object_path))
+            if not pixmap.isNull():
+                self._current_original_pixmap = pixmap # Сохраняем оригинал
+                self._display_current_image() # Отображаем масштабированную версию
+                self.preview_stacked_widget.setCurrentIndex(1) # Показываем QLabel для изображений
+            else:
+                self._show_preview_message(
+                    self.tr("Не удалось загрузить изображение. Возможно, файл поврежден или не является корректным изображением.")
+                )
+        elif content_type == "pdf_page_count":
+            self._show_preview_message(
+                self.tr("PDF-файл, {0} страниц. Полный предпросмотр не поддерживается, но вы можете сохранить или восстановить файл.").format(content_data)
+            )
+        elif content_type == "unsupported":
+            self._show_preview_message(
+                self.tr("Предпросмотр недоступен для этого типа файла.")
+            )
+        elif content_type == "error":
+            self._show_preview_message(
+                self.tr("Ошибка при предпросмотре: {0}").format(content_data)
+            )
+        else: # Fallback на текстовый, если что-то пошло не так
+            self.text_preview_widget.setText(self.tr("Неизвестный тип контента для предпросмотра."))
+            self.preview_stacked_widget.setCurrentIndex(0)
+
+    def _display_current_image(self):
+        """Отображает текущее изображение в image_preview_widget, масштабируя его пропорционально."""
+        if self._current_original_pixmap and not self._current_original_pixmap.isNull():
+            # Получаем доступный размер для отображения изображения
+            available_size = self.image_preview_widget.size()
+
+            # Масштабируем QPixmap с сохранением пропорций
+            scaled_pixmap = self._current_original_pixmap.scaled(
+                available_size,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation # Для лучшего качества при масштабировании
+            )
+            self.image_preview_widget.setPixmap(scaled_pixmap)
+        else:
+            self.image_preview_widget.clear() # Если нет изображения, очищаем QLabel
+
+    def _show_preview_message(self, message: str):
+        """Вспомогательный метод для отображения сообщений в информационном виджете."""
+        self.info_preview_widget.setText(message)
+        self.preview_stacked_widget.setCurrentIndex(2) # Показываем QLabel для информации/ошибок
+
+    def resizeEvent(self, event: QResizeEvent):
+        """Обрабатывает изменение размера окна."""
+        super().resizeEvent(event)
+        # Если текущий виджет в стеке - это виджет изображения и есть что отображать,
+        # то перемасштабируем изображение.
+        if self.preview_stacked_widget.currentIndex() == 1 and self._current_original_pixmap:
+            self._display_current_image()
 
     def _on_save_as(self):
         """Слот для кнопки 'Сохранить как...'."""
         file_item = self.files_list.currentItem()
         version_item = self.versions_list.currentItem()
-        if not file_item or not version_item:
+        if not file_item or not version_item or not self.current_object_path:
             return
 
-        original_path = Path(file_item.toolTip())
-        sha256_hash = version_item.data(Qt.ItemDataRole.UserRole)
-        object_path = self.history_manager.get_object_path(sha256_hash)
+        if not self.current_original_file_path:
+            QMessageBox.critical(self, self.tr("Ошибка"), self.tr("Не удалось определить оригинальный путь файла."))
+            return
 
-        # <-- Форматированная строка для имени файла
+        original_path = self.current_original_file_path
+        object_path = self.current_object_path
+
         suggested_name = self.tr("{0} (восстановлено){1}").format(original_path.stem, original_path.suffix)
 
         save_path, _ = QFileDialog.getSaveFileName(self, 
-            self.tr("Сохранить версию как..."), # <-- Размечено для перевода
+            self.tr("Сохранить версию как..."),
             str(original_path.parent / suggested_name)
         )
 
         if save_path:
             try:
                 shutil.copy2(object_path, save_path)
+                QMessageBox.information(self, self.tr("Успех"), self.tr("Файл успешно сохранен."))
             except IOError as e:
-                # <-- Сообщение для перевода
                 QMessageBox.critical(self, self.tr("Ошибка"), self.tr("Не удалось сохранить файл:\n{0}").format(e))
 
     def _on_restore(self):
         """Слот для кнопки 'Восстановить'."""
         file_item = self.files_list.currentItem()
         version_item = self.versions_list.currentItem()
-        if not file_item or not version_item:
+        if not file_item or not version_item or not self.current_object_path:
             return
 
-        original_path_str = file_item.toolTip()
-        original_path = Path(original_path_str)
-        sha256_hash = version_item.data(Qt.ItemDataRole.UserRole)
-        object_path = self.history_manager.get_object_path(sha256_hash)
+        if not self.current_original_file_path:
+            QMessageBox.critical(self, self.tr("Ошибка"), self.tr("Не удалось определить оригинальный путь файла."))
+            return
+
+        original_path_str = str(self.current_original_file_path)
+        original_path = self.current_original_file_path
+        object_path = self.current_object_path
 
         reply = QMessageBox.question(self, 
-            self.tr("Подтверждение"), # <-- Размечено для перевода
-            self.tr( # <-- Сообщение для перевода
+            self.tr("Подтверждение"),
+            self.tr(
                 "Вы уверены, что хотите восстановить файл:\n\n{0}\n\n"
                 "Текущая версия файла будет перезаписана (но предварительно сохранена в истории)."
             ).format(original_path_str),
@@ -312,32 +433,26 @@ class HistoryWindow(QMainWindow):
 
         if reply == QMessageBox.StandardButton.Yes:
             try:
-                # Перед восстановлением файла, сохраняем его текущую версию
-                # (HistoryManager уже имеет логику для этого в add_file_version)
                 self.history_manager.add_file_version(original_path_str)
 
-                # Теперь копируем выбранную версию из хранилища
                 shutil.copy2(object_path, original_path)
 
-                # Перезагружаем версии для текущего файла, чтобы показать новую, только что восстановленную версию
                 self._on_file_selected(file_item, None)
 
-                # <-- Сообщение для перевода
                 QMessageBox.information(self, self.tr("Успех"), self.tr("Файл успешно восстановлен."))
             except (IOError, OSError) as e:
-                # <-- Сообщение для перевода
                 QMessageBox.critical(self, self.tr("Ошибка"), self.tr("Не удалось восстановить файл:\n{0}").format(e))
 
     def _format_size(self, size_bytes: int) -> str:
         """Форматирует размер файла в удобочитаемый вид."""
         if size_bytes < 1024:
-            return self.tr("{0} B").format(size_bytes) # <-- Размечено для перевода
+            return self.tr("{0} B").format(size_bytes)
         elif size_bytes < 1024 ** 2:
-            return self.tr("{0:.1f} KB").format(size_bytes / 1024) # <-- Размечено для перевода
+            return self.tr("{0:.1f} KB").format(size_bytes / 1024)
         elif size_bytes < 1024 ** 3:
-            return self.tr("{0:.1f} MB").format(size_bytes / (1024 ** 2)) # <-- Размечено для перевода
+            return self.tr("{0:.1f} MB").format(size_bytes / (1024 ** 2))
         else:
-            return self.tr("{0:.1f} GB").format(size_bytes / (1024 ** 3)) # <-- Размечено для перевода
+            return self.tr("{0:.1f} GB").format(size_bytes / (1024 ** 3))
 
     def _load_styles(self):
         """Загружает и применяет стили QSS."""

@@ -2,3 +2,7 @@
 PySide6
 watchdog
 pywin32
+Pillow # Для обработки изображений
+PyMuPDF # Для работы с PDF (альтернатива PyPDF2)
+python-docx # Для работы с DOCX
+openpyxl # Для работы с XLSX
