@@ -4,10 +4,9 @@ import os
 import sys
 import winreg
 from pathlib import Path
-from typing import Tuple
 
-from PySide6.QtCore import QObject, Slot, Signal # <-- Добавлен импорт Signal
-from PySide6.QtWidgets import QApplication, QSystemTrayIcon # <-- Добавлен импорт QSystemTrayIcon
+from PySide6.QtCore import QObject, Slot, Signal
+from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from app.config_manager import ConfigManager
 
@@ -34,7 +33,6 @@ class ThemeManager(QObject):
     выбору пользователя.
     """
     # Сигнал для отправки уведомлений в трей.
-    # Аргументы: message (str), icon_type (QSystemTrayIcon.MessageIcon)
     theme_notification = Signal(str, QSystemTrayIcon.MessageIcon)
 
     DARK_THEME_PATH = "resources/styles/dark.qss"
@@ -45,8 +43,8 @@ class ThemeManager(QObject):
         self.config_manager = config_manager
         self.app = app
 
-        # Подключаемся к сигналу изменения настроек
-        self.config_manager.settings_changed.connect(self._on_settings_changed)
+        # Подключаемся к новому, специфичному сигналу об изменении темы
+        self.config_manager.theme_changed.connect(self._on_theme_setting_changed)
 
         # Применяем тему при инициализации
         self._apply_current_theme()
@@ -72,8 +70,6 @@ class ThemeManager(QObject):
                 winreg.CloseKey(key)
                 return 'light'
         except Exception:
-            # В случае ошибки возвращаем светлую тему по умолчанию
-            # print("ThemeManager: Ошибка при определении системной темы. Используется светлая тема по умолчанию.")
             self.theme_notification.emit(
                 self.tr("Ошибка при определении системной темы. Используется светлая тема по умолчанию."),
                 QSystemTrayIcon.Warning
@@ -89,19 +85,16 @@ class ThemeManager(QObject):
             with open(full_path, 'r', encoding='utf-8') as f:
                 qss_content = f.read()
             self.app.setStyleSheet(qss_content)
-            # print(f"ThemeManager: Применена тема из {qss_file_path}")
             self.theme_notification.emit(
                 self.tr("Применена тема из {0}").format(Path(qss_file_path).name),
                 QSystemTrayIcon.Information
             )
         except FileNotFoundError:
-            # print(f"ThemeManager: Ошибка - файл стилей не найден: {qss_file_path}")
             self.theme_notification.emit(
                 self.tr("Ошибка - файл стилей не найден: {0}").format(qss_file_path),
                 QSystemTrayIcon.Critical
             )
         except Exception as e:
-            # print(f"ThemeManager: Ошибка при загрузке или применении стилей {qss_file_path}: {e}")
             self.theme_notification.emit(
                 self.tr("Ошибка при загрузке или применении стилей {0}: {1}").format(qss_file_path, e),
                 QSystemTrayIcon.Critical
@@ -125,28 +118,18 @@ class ThemeManager(QObject):
         elif user_theme_setting == "light":
             self._load_qss(self.LIGHT_THEME_PATH)
         else:
-            # print(f"ThemeManager: Неизвестная настройка темы: {user_theme_setting}. Используется светлая тема по умолчанию.")
             self.theme_notification.emit(
                 self.tr("Неизвестная настройка темы: {0}. Используется светлая тема по умолчанию.").format(user_theme_setting),
                 QSystemTrayIcon.Warning
             )
             self._load_qss(self.LIGHT_THEME_PATH)
 
-    @Slot()
-    def _on_settings_changed(self):
+    @Slot(str)
+    def _on_theme_setting_changed(self, new_theme_value: str):
         """
-        Слот, вызываемый при изменении настроек. Переприменяет тему,
-        если настройка темы изменилась.
+        Слот, вызываемый при изменении настройки темы.
+        Просто переприменяет тему, так как сигнал гарантирует, что она изменилась.
         """
-        # Сначала получаем текущую настройку темы, чтобы избежать лишних перезагрузок QSS
-        current_theme_setting_before_apply = self.config_manager.get("theme", "auto")
+        # Уведомление о смене темы уже происходит внутри _load_qss,
+        # поэтому здесь достаточно просто вызвать применение темы.
         self._apply_current_theme()
-        current_theme_setting_after_apply = self.config_manager.get("theme", "auto")
-
-        # Отправляем уведомление, только если тема реально изменилась
-        if current_theme_setting_before_apply != current_theme_setting_after_apply:
-            self.theme_notification.emit(
-                self.tr("Настройка темы изменена. Текущая тема: {0}").format(current_theme_setting_after_apply),
-                QSystemTrayIcon.Information
-            )
-        # print(f"ThemeManager: Настройка темы изменена или другие настройки сохранены. Текущая тема: {current_theme_setting}.")

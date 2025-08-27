@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QTranslator, QLocale, Slot, Signal
-from PySide6.QtWidgets import QApplication, QSystemTrayIcon # <-- Добавлен импорт Signal и QSystemTrayIcon
+from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from app.config_manager import ConfigManager
 
@@ -31,7 +31,6 @@ class LocaleManager(QObject):
     ко всему приложению на основе системного языка или выбора пользователя.
     """
     # Сигнал для отправки уведомлений в трей.
-    # Аргументы: message (str), icon_type (QSystemTrayIcon.MessageIcon)
     locale_notification = Signal(str, QSystemTrayIcon.MessageIcon)
 
     TRANSLATIONS_DIR = "resources/translations"
@@ -44,8 +43,8 @@ class LocaleManager(QObject):
         self.app = app
         self._current_translator = None # Текущий активный QTranslator
 
-        # Подключаемся к сигналу изменения настроек
-        self.config_manager.settings_changed.connect(self._on_settings_changed)
+        # Подключаемся к новому, специфичному сигналу об изменении языка
+        self.config_manager.language_changed.connect(self._on_language_setting_changed)
 
         # Применяем язык при инициализации
         self._apply_current_locale()
@@ -71,8 +70,6 @@ class LocaleManager(QObject):
             self._current_translator = None
 
         if lang_key not in self.SUPPORTED_LANGUAGES:
-            # Для неподдерживаемых языков или "auto" без совпадения, просто не устанавливаем переводчик
-            # print(f"LocaleManager: Язык '{lang_key}' не поддерживается или выбран 'auto' без совпадений. Используется язык по умолчанию.")
             self.locale_notification.emit(
                 self.tr("Язык '{0}' не поддерживается или выбран 'Авто' без совпадений. Используется язык по умолчанию.").format(lang_key),
                 QSystemTrayIcon.Information
@@ -85,13 +82,11 @@ class LocaleManager(QObject):
         if translator.load(str(qm_file_path)):
             self.app.installTranslator(translator)
             self._current_translator = translator
-            # print(f"LocaleManager: Применен перевод для языка: {lang_key} из файла {qm_file_path}")
             self.locale_notification.emit(
                 self.tr("Применен перевод для языка: {0}").format(lang_key),
                 QSystemTrayIcon.Information
             )
         else:
-            # print(f"LocaleManager: Ошибка загрузки файла перевода для {lang_key}: {qm_file_path}")
             self.locale_notification.emit(
                 self.tr("Ошибка загрузки файла перевода для {0}: {1}").format(lang_key, qm_file_path),
                 QSystemTrayIcon.Warning
@@ -110,29 +105,25 @@ class LocaleManager(QObject):
         elif user_lang_setting in self.SUPPORTED_LANGUAGES:
             self._load_translator(user_lang_setting)
         else:
-            # print(f"LocaleManager: Неизвестная настройка языка: {user_lang_setting}. Используется английский по умолчанию.")
             self.locale_notification.emit(
                 self.tr("Неизвестная настройка языка: {0}. Используется английский по умолчанию.").format(user_lang_setting),
                 QSystemTrayIcon.Warning
             )
             self._load_translator("en") # Fallback на английский
 
-    @Slot()
-    def _on_settings_changed(self):
+    @Slot(str)
+    def _on_language_setting_changed(self, new_lang_value: str):
         """
-        Слот, вызываемый при изменении настроек. Переприменяет язык,
-        если настройка языка изменилась.
+        Слот, вызываемый при изменении настройки языка.
+        Перезагружает перевод и уведомляет пользователя о необходимости перезапуска.
         """
-        # Просто переприменяем язык. Если изменились другие настройки,
-        # это не навредит, если язык не менялся.
-        current_lang_setting_before_apply = self.config_manager.get("language", "auto")
+        # Уведомление о смене языка уже происходит внутри _load_translator,
+        # поэтому здесь достаточно просто вызвать применение языка.
         self._apply_current_locale()
-        current_lang_setting_after_apply = self.config_manager.get("language", "auto")
 
-        # Отправляем уведомление, только если язык реально изменился
-        if current_lang_setting_before_apply != current_lang_setting_after_apply:
-            self.locale_notification.emit(
-                self.tr("Настройка языка изменена. Текущий язык: {0}").format(current_lang_setting_after_apply),
-                QSystemTrayIcon.Information
-            )
-        # print(f"LocaleManager: Настройка языка изменена или другие настройки сохранены. Текущий язык: {current_lang_setting}.")
+        # Дополнительно предупреждаем, что для полного применения языка
+        # может потребоваться перезапуск, особенно для уже созданных окон.
+        self.locale_notification.emit(
+            self.tr("Настройка языка изменена. Для полного применения изменений может потребоваться перезапуск приложения."),
+            QSystemTrayIcon.Information
+        )

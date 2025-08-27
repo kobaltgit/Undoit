@@ -73,7 +73,10 @@ class TrayIcon(QSystemTrayIcon):
             self.tr("Backdraft - История"), msg, icon
         ))
 
-        self.config_manager.settings_changed.connect(self._on_settings_changed)
+        # Подключаемся к новым, более конкретным сигналам от ConfigManager
+        self.config_manager.startup_changed.connect(self._on_startup_setting_changed)
+        self.config_manager.watched_paths_changed.connect(self._on_watched_paths_changed)
+
         self.startup_manager.startup_action_completed.connect(self._on_startup_action_completed)
 
         # 5. Подключаем очистку ресурсов при выходе
@@ -316,23 +319,20 @@ class TrayIcon(QSystemTrayIcon):
         self._update_monitoring_ui_state() # Обновляем UI после изменения состояния
 
 
-    @Slot()
-    def _on_settings_changed(self):
+    @Slot(bool)
+    def _on_startup_setting_changed(self, enabled: bool):
         """
-        Слот, вызываемый при изменении любых настроек в ConfigManager.
-        Проверяет настройку 'launch_on_startup' и соответствующим образом
-        обновляет автозапуск через StartupManager, а также обновляет
-        список отслеживаемых папок.
+        Слот, вызываемый при изменении настройки автозапуска.
         """
-        # 1. Обновление автозапуска
-        enable_startup = self.config_manager.get("launch_on_startup", False)
-        self.startup_manager.update_startup_setting(enable_startup)
+        self.startup_manager.update_startup_setting(enabled)
 
-        # 2. Обновление списка отслеживаемых папок
-        new_watched_paths_list_str = self.config_manager.get_watched_paths()
-
+    @Slot(list)
+    def _on_watched_paths_changed(self, new_paths_str_list: List[str]):
+        """
+        Слот, вызываемый при изменении списка отслеживаемых папок.
+        """
         valid_new_paths_set = set()
-        for path_str in new_watched_paths_list_str:
+        for path_str in new_paths_str_list:
             path = Path(path_str)
             if path.exists():
                 valid_new_paths_set.add(path.resolve()) # Нормализуем для корректного сравнения
@@ -346,28 +346,29 @@ class TrayIcon(QSystemTrayIcon):
         added_paths_obj = valid_new_paths_set - self._current_watched_paths
         removed_paths_obj = self._current_watched_paths - valid_new_paths_set
 
+        if not added_paths_obj and not removed_paths_obj:
+            # Если после валидации и сравнения фактических изменений нет, выходим.
+            return
+
         added_paths_str = [str(p) for p in added_paths_obj]
 
-        # Если пути изменились, обновляем watcher и запускаем сканирование/очистку
-        if added_paths_obj or removed_paths_obj:
-            # Обновляем watcher с новым полным списком.
-            self.watcher.update_paths(list(valid_new_paths_set))
+        # Обновляем watcher с новым полным списком.
+        self.watcher.update_paths(list(valid_new_paths_set))
 
-            # Сохраняем новый актуальный список нормализованных путей
-            self._current_watched_paths = valid_new_paths_set
+        # Сохраняем новый актуальный список нормализованных путей
+        self._current_watched_paths = valid_new_paths_set
 
-            if removed_paths_obj:
-                # Запускаем очистку.
-                self.history_manager.start_cleanup(list(self._current_watched_paths))
+        # Запускаем очистку, если что-то было удалено.
+        if removed_paths_obj:
+            self.history_manager.start_cleanup(list(self._current_watched_paths))
 
-            if added_paths_obj:
-                # Запускаем сканирование только для новых добавленных папок
-                self.history_manager.start_scan(added_paths_str)
+        # Запускаем сканирование только для новых добавленных папок.
+        if added_paths_obj:
+            self.history_manager.start_scan(added_paths_str)
 
-        # После всех операций пытаемся запустить мониторинг.
+        # После всех операций пытаемся запустить/обновить мониторинг.
         # Это также обновит UI.
         self._attempt_start_monitoring()
-
 
     @Slot(str, QSystemTrayIcon.MessageIcon)
     def _on_startup_action_completed(self, message: str, icon_type: QSystemTrayIcon.MessageIcon):
