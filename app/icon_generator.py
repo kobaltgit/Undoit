@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # Генератор иконок-щитов
-import os # <-- Добавлен импорт os
+import os
 import sys
 import winreg
 from typing import Dict, Tuple
@@ -134,7 +134,8 @@ class IconGenerator:
             'normal': Qt.GlobalColor.transparent,
             'saving': QColor(accent_color_hex),
             'paused': QColor('#808080'),  # Серый
-            'error': QColor('#D32F2F')   # Насыщенный красный
+            'error': QColor('#D32F2F'),   # Насыщенный красный
+            'inactive': QColor("#460194") # Темно-серый для неактивного состояния (не запущен, не пауза)
         }
 
         for state, color in state_colors.items():
@@ -145,7 +146,7 @@ class IconGenerator:
     def get_icon(self, state: str) -> QIcon:
         """
         Возвращает готовую QIcon для заданного состояния.
-        Доступные состояния: 'normal', 'saving', 'paused', 'error'.
+        Доступные состояния: 'normal', 'saving', 'paused', 'error', 'inactive'.
         Это иконки для системного трея, они генерируются программно.
         """
         return self._icons.get(state, self._icons['normal'])

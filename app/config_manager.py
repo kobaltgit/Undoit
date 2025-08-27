@@ -2,10 +2,10 @@
 # Управление конфигурацией приложения
 import json
 from pathlib import Path
-from typing import Any, List
+from typing import Any, List, Set # <-- Добавлен импорт Set
 
 from PySide6.QtCore import QObject, Signal
-from PySide6.QtWidgets import QSystemTrayIcon # <-- Добавлен импорт для типа MessageIcon
+from PySide6.QtWidgets import QSystemTrayIcon
 
 
 class ConfigManager(QObject):
@@ -40,7 +40,6 @@ class ConfigManager(QObject):
 
     def _get_app_data_path(self) -> Path:
         """Возвращает путь к папке данных приложения и создает ее, если нужно."""
-        # Path.home() -> C:\Users\<ИмяПользователя>
         path = Path.home() / "AppData" / "Local" / self.CONFIG_DIR_NAME
         path.mkdir(parents=True, exist_ok=True)
         return path
@@ -48,7 +47,6 @@ class ConfigManager(QObject):
     def load(self):
         """Загружает настройки из config.json."""
         if not self.config_path.exists():
-            # Если файла нет, сохраняем дефолтный конфиг
             self.save()
             return
 
@@ -59,7 +57,6 @@ class ConfigManager(QObject):
                 # это сохранит новые ключи, если они появятся в будущих версиях
                 self._settings.update(loaded_settings)
         except (json.JSONDecodeError, IOError) as e:
-            # print(f"Ошибка загрузки конфигурации: {e}. Будут использованы настройки по умолчанию.")
             self.config_notification.emit(
                 self.tr("Ошибка загрузки конфигурации: {0}. Будут использованы настройки по умолчанию.").format(e),
                 QSystemTrayIcon.Warning
@@ -71,15 +68,8 @@ class ConfigManager(QObject):
         try:
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 json.dump(self._settings, f, indent=4, ensure_ascii=False)
-            self.settings_changed.emit()
-            # Уведомление об успешном сохранении можно сделать более детальным,
-            # но пока оставим только об изменении настроек.
-            # self.config_notification.emit(
-            #     self.tr("Настройки успешно сохранены."),
-            #     QSystemTrayIcon.Information
-            # )
+            self.settings_changed.emit() # Сигнал settings_changed испускается здесь
         except IOError as e:
-            # print(f"Ошибка сохранения конфигурации: {e}")
             self.config_notification.emit(
                 self.tr("Ошибка сохранения конфигурации: {0}").format(e),
                 QSystemTrayIcon.Critical
@@ -90,11 +80,44 @@ class ConfigManager(QObject):
         return self._settings.get(key, default)
 
     def set(self, key: str, value: Any):
-        """Устанавливает значение настройки и сразу сохраняет его в файл."""
-        # Проверяем, изменилось ли значение, чтобы не сохранять и не испускать сигнал без необходимости
-        if self._settings.get(key) != value:
-            self._settings[key] = value
-            self.save() # save() сам испустит settings_changed.
+        """
+        Устанавливает значение настройки и сразу сохраняет его в файл.
+        Включает умное сравнение для предотвращения лишних сигналов.
+        """
+        current_value = self._settings.get(key)
+
+        # Специальная обработка для списка путей, чтобы игнорировать порядок и форматирование
+        if key == "watched_paths":
+            # Нормализуем текущие и новые пути для сравнения как множества
+            current_paths_set = self._normalize_paths_to_set(current_value)
+            new_paths_set = self._normalize_paths_to_set(value)
+
+            if current_paths_set == new_paths_set:
+                return # Пути по сути не изменились, пропускаем сохранение и сигнал
+
+            # Если изменились, сохраняем в POSIX-формате
+            self._settings[key] = [Path(p).as_posix() for p in value]
+            self.save()
+        else:
+            # Для других настроек обычное сравнение
+            if current_value != value:
+                self._settings[key] = value
+                self.save()
+
+    def _normalize_paths_to_set(self, paths: List[str]) -> Set[str]:
+        """
+        Вспомогательный метод для нормализации списка путей в набор строк
+        для сравнения без учета порядка и различий в слэшах.
+        """
+        normalized_paths = set()
+        for p_str in paths:
+            try:
+                # Resolve() для канонического пути, as_posix() для единообразных слэшей
+                normalized_paths.add(Path(p_str).resolve().as_posix())
+            except Exception:
+                # Если путь невалиден, просто добавляем его как есть (лучше, чем пропустить)
+                normalized_paths.add(Path(p_str).as_posix())
+        return normalized_paths
 
     # --- Удобные методы-геттеры и сеттеры ---
 
@@ -107,8 +130,7 @@ class ConfigManager(QObject):
         return self.get("watched_paths", [])
 
     def set_watched_paths(self, paths: List[str]):
-        """Устанавливает список отслеживаемых папок."""
-        # Убедимся, что сравниваем списки как множества, если порядок неважен,
-        # но для сохранения порядка придерживаемся прямого сравнения.
-        # В данном случае, set() достаточно умён, чтобы сравнить без лишних сигналов.
-        self.set("watched_paths", paths)
+        """
+        Устанавливает список отслеживаемых папок, преобразуя пути в POSIX-формат.
+        """
+        self.set("watched_paths", paths) # Теперь set() сам обрабатывает нормализацию и сравнение

@@ -26,6 +26,9 @@ class HistoryWindow(QMainWindow):
         self.setWindowIcon(app_icon)
         self.resize(1200, 700)
 
+        # Сохраняем полный список файлов для поиска
+        self._all_tracked_files_data = [] # [(file_id, full_path), ...]
+
         self._init_ui()
         self._load_styles()
         self.refresh_file_list() # Первоначальная загрузка
@@ -107,6 +110,7 @@ class HistoryWindow(QMainWindow):
         self.versions_list.currentItemChanged.connect(self._on_version_selected)
         self.save_as_button.clicked.connect(self._on_save_as)
         self.restore_button.clicked.connect(self._on_restore)
+        self.search_input.textChanged.connect(self._on_search_text_changed) # <-- Новое соединение для поиска
 
     @Slot()
     def refresh_file_list(self):
@@ -116,22 +120,81 @@ class HistoryWindow(QMainWindow):
         if self.files_list.currentItem():
             current_id = self.files_list.currentItem().data(Qt.ItemDataRole.UserRole)
 
+        # Очищаем _all_tracked_files_data и files_list
+        self._all_tracked_files_data.clear()
         self.files_list.clear()
-        tracked_files = self.history_manager.get_all_tracked_files()
 
+        # Загружаем все отслеживаемые файлы
+        tracked_files = self.history_manager.get_all_tracked_files()
+        self._all_tracked_files_data.extend(tracked_files)
+
+        # Добавляем все элементы в список, но фильтруем их сразу, если есть текст поиска
+        search_text = self.search_input.text().strip()
         item_to_select = None
-        for file_id, full_path in tracked_files:
+
+        for file_id, full_path in self._all_tracked_files_data:
             item = QListWidgetItem()
             item.setText(Path(full_path).name)
             item.setToolTip(full_path)
             item.setData(Qt.ItemDataRole.UserRole, file_id)
             self.files_list.addItem(item)
+
+            # Применяем фильтр поиска сразу
+            if search_text and search_text.lower() not in Path(full_path).name.lower():
+                item.setHidden(True)
+
             if file_id == current_id:
                 item_to_select = item
 
         # Если ранее был выбранный элемент, выбираем его снова
-        if item_to_select:
+        if item_to_select and not item_to_select.isHidden():
             self.files_list.setCurrentItem(item_to_select)
+        elif item_to_select and item_to_select.isHidden():
+            # Если выбранный элемент скрыт, сбрасываем выбор и очищаем версии/превью
+            self.files_list.setCurrentItem(None)
+            self.versions_list.clear()
+            self.preview_text.clear()
+            self.save_as_button.setEnabled(False)
+            self.restore_button.setEnabled(False)
+
+
+    @Slot(str)
+    def _on_search_text_changed(self, text: str):
+        """
+        Слот, вызываемый при изменении текста в поле поиска.
+        Фильтрует отображаемые файлы в списке.
+        """
+        search_lower = text.strip().lower()
+
+        # Сохраняем ID текущего выбранного файла, если он есть
+        current_id = None
+        if self.files_list.currentItem():
+            current_id = self.files_list.currentItem().data(Qt.ItemDataRole.UserRole)
+
+        found_item_to_select = None
+
+        # Перебираем все элементы в QListWidget и показываем/скрываем их
+        for i in range(self.files_list.count()):
+            item = self.files_list.item(i)
+            file_name = item.text().lower()
+            if search_lower in file_name:
+                item.setHidden(False)
+                if item.data(Qt.ItemDataRole.UserRole) == current_id:
+                    found_item_to_select = item
+            else:
+                item.setHidden(True)
+
+        # Восстанавливаем выбор, если выбранный элемент остался видимым
+        if found_item_to_select and not found_item_to_select.isHidden():
+            self.files_list.setCurrentItem(found_item_to_select)
+        elif current_id is not None:
+            # Если выбранный элемент стал невидимым или его не было,
+            # сбрасываем выбор и очищаем панели версий/превью.
+            self.files_list.setCurrentItem(None)
+            self.versions_list.clear()
+            self.preview_text.clear()
+            self.save_as_button.setEnabled(False)
+            self.restore_button.setEnabled(False)
 
     @Slot(int)
     def refresh_version_list_if_selected(self, updated_file_id: int):
@@ -142,6 +205,7 @@ class HistoryWindow(QMainWindow):
         selected_file_id = self.files_list.currentItem().data(Qt.ItemDataRole.UserRole)
         if selected_file_id == updated_file_id:
             # Просто вызываем существующий обработчик, чтобы он перезагрузил версии
+            # Это имитирует выбор файла заново
             self._on_file_selected(self.files_list.currentItem(), None)
 
     def _on_file_selected(self, current_item: QListWidgetItem, previous_item: QListWidgetItem):
@@ -150,6 +214,8 @@ class HistoryWindow(QMainWindow):
         self.preview_text.clear()
 
         if not current_item:
+            self.save_as_button.setEnabled(False)
+            self.restore_button.setEnabled(False)
             return
 
         file_id = current_item.data(Qt.ItemDataRole.UserRole)
@@ -165,6 +231,11 @@ class HistoryWindow(QMainWindow):
             item = QListWidgetItem(self.tr("{0} ({1})").format(formatted_time, formatted_size))
             item.setData(Qt.ItemDataRole.UserRole, sha256_hash)
             self.versions_list.addItem(item)
+
+        # После загрузки версий, кнопки остаются отключенными, пока не выбрана конкретная версия
+        self.save_as_button.setEnabled(False)
+        self.restore_button.setEnabled(False)
+
 
     def _on_version_selected(self, current_item: QListWidgetItem, previous_item: QListWidgetItem):
         """Слот, вызываемый при выборе версии в центральном списке."""
@@ -241,10 +312,14 @@ class HistoryWindow(QMainWindow):
 
         if reply == QMessageBox.StandardButton.Yes:
             try:
+                # Перед восстановлением файла, сохраняем его текущую версию
+                # (HistoryManager уже имеет логику для этого в add_file_version)
                 self.history_manager.add_file_version(original_path_str)
 
+                # Теперь копируем выбранную версию из хранилища
                 shutil.copy2(object_path, original_path)
 
+                # Перезагружаем версии для текущего файла, чтобы показать новую, только что восстановленную версию
                 self._on_file_selected(file_item, None)
 
                 # <-- Сообщение для перевода

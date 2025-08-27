@@ -2,49 +2,160 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="en_US">
 <context>
+    <name>CleanupWorker</name>
+    <message>
+        <location filename="../../app/history_manager.py" line="81"/>
+        <source>Началась фоновая очистка истории файлов...</source>
+        <translation>Background history cleanup started...</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="96"/>
+        <source>Фоновая очистка истории завершена. Удалено {0} записей.</source>
+        <translation>Background history cleanup finished. {0} records deleted.</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="99"/>
+        <source>Фоновая очистка истории завершена. Нет файлов для удаления.</source>
+        <translation>Background history cleanup finished. No files to delete.</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="102"/>
+        <source>Фоновая очистка истории прервана пользователем.</source>
+        <translation>Background history cleanup interrupted by user.</translation>
+    </message>
+</context>
+<context>
     <name>ConfigManager</name>
     <message>
         <location filename="../../app/config_manager.py" line="58"/>
-        <source>Ошибка загрузки конфигурации: %0. Будут использованы настройки по умолчанию.</source>
-        <translation>Error loading configuration: %0. Default settings will be used.</translation>
+        <source>Ошибка загрузки конфигурации: {0}. Будут использованы настройки по умолчанию.</source>
+        <translation>Error loading configuration: {0}. Default settings will be used.</translation>
     </message>
     <message>
         <location filename="../../app/config_manager.py" line="72"/>
-        <source>Ошибка сохранения конфигурации: %0</source>
-        <translation>Error saving configuration: %0</translation>
+        <source>Ошибка сохранения конфигурации: {0}</source>
+        <translation>Error saving configuration: {0}</translation>
     </message>
 </context>
 <context>
     <name>FileWatcher</name>
     <message>
         <location filename="../../app/file_watcher.py" line="50"/>
-        <source>Путь для отслеживания не существует и будет проигнорирован: %0</source>
-        <translation>Watched path does not exist and will be ignored: %0</translation>
+        <source>Путь для отслеживания не существует и будет проигнорирован: {0}</source>
+        <translation>Watched path does not exist and will be ignored: {0}</translation>
     </message>
     <message>
-        <location filename="../../app/file_watcher.py" line="75"/>
+        <location filename="../../app/file_watcher.py" line="78"/>
         <source>Не могу начать отслеживание: нет папок для мониторинга.</source>
         <translation>Cannot start monitoring: no folders to monitor.</translation>
     </message>
     <message>
-        <location filename="../../app/file_watcher.py" line="81"/>
-        <source>Начинаю отслеживание папок: %0</source>
-        <translation>Starting to watch folders: %0</translation>
+        <location filename="../../app/file_watcher.py" line="84"/>
+        <source>Начинаю отслеживание папок: {0}</source>
+        <translation>Starting to watch folders: {0}</translation>
     </message>
     <message>
-        <location filename="../../app/file_watcher.py" line="86"/>
-        <source>Ошибка при запуске отслеживания файлов: %0</source>
-        <translation>Error starting file monitoring: %0</translation>
+        <location filename="../../app/file_watcher.py" line="89"/>
+        <source>Ошибка при запуске отслеживания файлов: {0}</source>
+        <translation>Error starting file monitoring: {0}</translation>
     </message>
     <message>
-        <location filename="../../app/file_watcher.py" line="97"/>
+        <location filename="../../app/file_watcher.py" line="100"/>
         <source>Отслеживание остановлено.</source>
         <translation>Monitoring stopped.</translation>
     </message>
     <message>
-        <location filename="../../app/file_watcher.py" line="102"/>
-        <source>Ошибка при остановке отслеживания файлов: %0</source>
-        <translation>Error stopping file monitoring: %0</translation>
+        <location filename="../../app/file_watcher.py" line="105"/>
+        <source>Ошибка при остановке отслеживания файлов: {0}</source>
+        <translation>Error stopping file monitoring: {0}</translation>
+    </message>
+</context>
+<context>
+    <name>HistoryManager</name>
+    <message>
+        <location filename="../../app/history_manager.py" line="221"/>
+        <source>Сканирование не начато: нет папок для сканирования.</source>
+        <translation>Scan not started: no folders to scan.</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="280"/>
+        <source>Ошибка: не удалось рассчитать хеш для файла {0}</source>
+        <translation>Error: failed to calculate hash for file {0}</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="300"/>
+        <source>Не удалось сохранить версию файла {0}.</source>
+        <translation>Failed to save file version {0}.</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="309"/>
+        <source>Добавлен новый файл для отслеживания: {0}</source>
+        <translation>New file added for monitoring: {0}</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="313"/>
+        <source>Сохранена новая версия файла: {0}</source>
+        <translation>New version of file saved: {0}</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="346"/>
+        <source>Ошибка: не удалось прочитать файл {0}</source>
+        <translation>Error: failed to read file {0}</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="351"/>
+        <source>Ошибка: файл {0} не найден при попытке сохранения.</source>
+        <translation>Error: file {0} not found during save attempt.</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="356"/>
+        <source>Ошибка при доступе к файлу {0}: {1}</source>
+        <translation>Error accessing file {0}: {1}</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="366"/>
+        <source>Ошибка сохранения копии файла {0} в хранилище: {1}</source>
+        <translation>Error saving copy of file {0} to storage: {1}</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="392"/>
+        <source>Ошибка при проверке пути {0}: {1}</source>
+        <translation>Error checking path {0}: {1}</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="396"/>
+        <source>Непредвиденная ошибка при проверке пути {0}: {1}</source>
+        <translation>Unexpected error checking path {0}: {1}</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="400"/>
+        <source>Найден файл для удаления: {0}</source>
+        <translation>File found for deletion: {0}</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="410"/>
+        <source>Ошибка при удалении записей из БД: {0}</source>
+        <translation>Error deleting records from DB: {0}</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="414"/>
+        <source>Нет файлов для удаления из истории.</source>
+        <translation>No files to delete from history.</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="421"/>
+        <source>Ошибка создания папки хранилища: {0}</source>
+        <translation>Error creating storage folder: {0}</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="436"/>
+        <source>Ошибка инициализации базы данных: {0}</source>
+        <translation>Error initializing database: {0}</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="441"/>
+        <source>Соединение с базой данных закрыто.</source>
+        <translation>Database connection closed.</translation>
     </message>
 </context>
 <context>
@@ -84,51 +195,35 @@
         <source>Предпросмотр:</source>
         <translation>Preview:</translation>
     </message>
-    <message numerus="yes" id="size_b">
-        <location filename="../../app/ui/main_window.py" line="155"/>
-        <source>%n B</source>
-        <translation>
-            <numerusform>%n B</numerusform>
-            <numerusform>%n B</numerusform>
-            <numerusform>%n B</numerusform>
-        </translation>
-    </message>
-    <message numerus="yes" id="size_kb">
-        <location filename="../../app/ui/main_window.py" line="157"/>
-        <source>%n KB</source>
-        <translation>
-            <numerusform>%n KB</numerusform>
-            <numerusform>%n KB</numerusform>
-            <numerusform>%n KB</numerusform>
-        </translation>
-    </message>
-    <message numerus="yes" id="size_mb">
-        <location filename="../../app/ui/main_window.py" line="159"/>
-        <source>%n MB</source>
-        <translation>
-            <numerusform>%n MB</numerusform>
-            <numerusform>%n MB</numerusform>
-            <numerusform>%n MB</numerusform>
-        </translation>
-    </message>
-    <message numerus="yes" id="size_gb">
-        <location filename="../../app/ui/main_window.py" line="161"/>
-        <source>%n GB</source>
-        <translation>
-            <numerusform>%n GB</numerusform>
-            <numerusform>%n GB</numerusform>
-            <numerusform>%n GB</numerusform>
-        </translation>
-    </message>
     <message>
         <location filename="../../app/ui/main_window.py" line="145"/>
-        <source>%0 (%1)</source>
-        <translation>%0 (%1)</translation>
+        <source>{0} ({1})</source>
+        <translation>{0} ({1})</translation>
+    </message>
+    <message>
+        <location filename="../../app/ui/main_window.py" line="155"/>
+        <source>{0} B</source>
+        <translation>{0} B</translation>
+    </message>
+    <message>
+        <location filename="../../app/ui/main_window.py" line="157"/>
+        <source>{0:.1f} KB</source>
+        <translation>{0:.1f} KB</translation>
+    </message>
+    <message>
+        <location filename="../../app/ui/main_window.py" line="159"/>
+        <source>{0:.1f} MB</source>
+        <translation>{0:.1f} MB</translation>
+    </message>
+    <message>
+        <location filename="../../app/ui/main_window.py" line="161"/>
+        <source>{0:.1f} GB</source>
+        <translation>{0:.1f} GB</translation>
     </message>
     <message>
         <location filename="../../app/ui/main_window.py" line="169"/>
-        <source>Ошибка: не удалось найти файл с хешем %0...</source>
-        <translation>Error: failed to find file with hash %0...</translation>
+        <source>Ошибка: не удалось найти файл с хешем {0}...</source>
+        <translation>Error: failed to find file with hash {0}...</translation>
     </message>
     <message>
         <location filename="../../app/ui/main_window.py" line="172"/>
@@ -137,8 +232,8 @@
     </message>
     <message>
         <location filename="../../app/ui/main_window.py" line="189"/>
-        <source>%0 (восстановлено)%1</source>
-        <translation>%0 (restored)%1</translation>
+        <source>{0} (восстановлено){1}</source>
+        <translation>{0} (restored){1}</translation>
     </message>
     <message>
         <location filename="../../app/ui/main_window.py" line="191"/>
@@ -154,9 +249,9 @@
     <message>
         <location filename="../../app/ui/main_window.py" line="197"/>
         <source>Не удалось сохранить файл:
-%0</source>
+{0}</source>
         <translation>Failed to save file:
-%0</translation>
+{0}</translation>
     </message>
     <message>
         <location filename="../../app/ui/main_window.py" line="209"/>
@@ -167,12 +262,12 @@
         <location filename="../../app/ui/main_window.py" line="210"/>
         <source>Вы уверены, что хотите восстановить файл:
 
-%0
+{0}
 
 Текущая версия файла будет перезаписана (но предварительно сохранена в истории).</source>
         <translation>Are you sure you want to restore the file:
 
-%0
+{0}
 
 The current version of the file will be overwritten (but saved in history first).</translation>
     </message>
@@ -189,90 +284,37 @@ The current version of the file will be overwritten (but saved in history first)
     <message>
         <location filename="../../app/ui/main_window.py" line="229"/>
         <source>Не удалось восстановить файл:
-%0</source>
+{0}</source>
         <translation>Failed to restore file:
-%0</translation>
-    </message>
-</context>
-<context>
-    <name>HistoryManager</name>
-    <message>
-        <location filename="../../app/history_manager.py" line="30"/>
-        <source>Началось фоновое сканирование файлов...</source>
-        <translation>Background file scanning started...</translation>
-    </message>
-    <message>
-        <location filename="../../app/history_manager.py" line="36"/>
-        <source>Фоновое сканирование завершено.</source>
-        <translation>Background scanning finished.</translation>
-    </message>
-    <message>
-        <location filename="../../app/history_manager.py" line="88"/>
-        <source>Ошибка: не удалось рассчитать хеш для файла %0</source>
-        <translation>Error: failed to calculate hash for file %0</translation>
-    </message>
-    <message>
-        <location filename="../../app/history_manager.py" line="150"/>
-        <source>Ошибка: не удалось прочитать файл %0</source>
-        <translation>Error: failed to read file %0</translation>
-    </message>
-    <message>
-        <location filename="../../app/history_manager.py" line="161"/>
-        <source>Ошибка сохранения копии файла %0 в хранилище: %1</source>
-        <translation>Error saving copy of file %0 to storage: %1</translation>
-    </message>
-    <message>
-        <location filename="../../app/history_manager.py" line="188"/>
-        <source>Ошибка при сохранении версии в БД для файла %0: %1</source>
-        <translation>Error saving version to DB for file %0: %1</translation>
-    </message>
-    <message>
-        <location filename="../../app/history_manager.py" line="195"/>
-        <source>Добавлен новый файл для отслеживания: %0</source>
-        <translation>New file added for monitoring: %0</translation>
-    </message>
-    <message>
-        <location filename="../../app/history_manager.py" line="199"/>
-        <source>Сохранена новая версия файла: %0</source>
-        <translation>New version of file saved: %0</translation>
-    </message>
-    <message>
-        <location filename="../../app/history_manager.py" line="217"/>
-        <source>Ошибка создания папки хранилища: %0</source>
-        <translation>Error creating storage folder: %0</translation>
-    </message>
-    <message>
-        <location filename="../../app/history_manager.py" line="229"/>
-        <source>Ошибка инициализации базы данных: %0</source>
-        <translation>Error initializing database: %0</translation>
+{0}</translation>
     </message>
 </context>
 <context>
     <name>LocaleManager</name>
     <message>
         <location filename="../../app/locale_manager.py" line="68"/>
-        <source>Язык &apos;%0&apos; не поддерживается или выбран &apos;Авто&apos; без совпадений. Используется язык по умолчанию.</source>
-        <translation>Language &apos;%0&apos; is not supported or &apos;Auto&apos; was chosen with no matches. Using default language.</translation>
+        <source>Язык &apos;{0}&apos; не поддерживается или выбран &apos;Авто&apos; без совпадений. Используется язык по умолчанию.</source>
+        <translation>Language &apos;{0}&apos; is not supported or &apos;Auto&apos; was chosen with no matches. Using default language.</translation>
     </message>
     <message>
         <location filename="../../app/locale_manager.py" line="76"/>
-        <source>Применен перевод для языка: %0</source>
-        <translation>Translation applied for language: %0</translation>
+        <source>Применен перевод для языка: {0}</source>
+        <translation>Translation applied for language: {0}</translation>
     </message>
     <message>
         <location filename="../../app/locale_manager.py" line="81"/>
-        <source>Ошибка загрузки файла перевода для %0: %1</source>
-        <translation>Error loading translation file for %0: %1</translation>
+        <source>Ошибка загрузки файла перевода для {0}: {1}</source>
+        <translation>Error loading translation file for {0}: {1}</translation>
     </message>
     <message>
         <location filename="../../app/locale_manager.py" line="93"/>
-        <source>Неизвестная настройка языка: %0. Используется английский по умолчанию.</source>
-        <translation>Unknown language setting: %0. Using English by default.</translation>
+        <source>Неизвестная настройка языка: {0}. Используется английский по умолчанию.</source>
+        <translation>Unknown language setting: {0}. Using English by default.</translation>
     </message>
     <message>
         <location filename="../../app/locale_manager.py" line="106"/>
-        <source>Настройка языка изменена. Текущий язык: %0</source>
-        <translation>Language setting changed. Current language: %0</translation>
+        <source>Настройка языка изменена. Текущий язык: {0}</source>
+        <translation>Language setting changed. Current language: {0}</translation>
     </message>
 </context>
 <context>
@@ -301,22 +343,34 @@ By default, your Desktop is being monitored. You can change watched folders in s
         <source>Backdraft - Тема</source>
         <translation>Backdraft - Theme</translation>
     </message>
+</context>
+<context>
+    <name>ScanWorker</name>
     <message>
-        <location filename="../../app/main.py" line="106"/>
-        <source>Backdraft - Отслеживание</source>
-        <translation>Backdraft - Monitoring</translation>
+        <location filename="../../app/history_manager.py" line="25"/>
+        <source>Сканирование пропущено: нет папок для сканирования.</source>
+        <translation>Scan skipped: no folders to scan.</translation>
     </message>
     <message>
-        <location filename="../../app/main.py" line="107"/>
-        <source>Внимание: Указанный путь не существует и будет проигнорирован: %0</source>
-        <translation>Warning: The specified path does not exist and will be ignored: %0</translation>
+        <location filename="../../app/history_manager.py" line="30"/>
+        <source>Началось фоновое сканирование файлов...</source>
+        <translation>Background file scanning started...</translation>
     </message>
     <message>
-        <location filename="../../app/main.py" line="119"/>
-        <source>Не найдено ни одной существующей папки для отслеживания.
-Пожалуйста, добавьте папки в настройках.</source>
-        <translation>No existing folders to watch found.
-Please add folders in settings.</translation>
+        <location filename="../../app/history_manager.py" line="35"/>
+        <location filename="../../app/history_manager.py" line="44"/>
+        <source>Сканирование прервано пользователем.</source>
+        <translation>Scan interrupted by user.</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="39"/>
+        <source>Путь для сканирования не существует и будет проигнорирован: {0}</source>
+        <translation>Scan path does not exist and will be ignored: {0}</translation>
+    </message>
+    <message>
+        <location filename="../../app/history_manager.py" line="59"/>
+        <source>Фоновое сканирование завершено.</source>
+        <translation>Background scanning finished.</translation>
     </message>
 </context>
 <context>
@@ -408,8 +462,8 @@ Please add folders in settings.</translation>
     <name>StartupManager</name>
     <message>
         <location filename="../../app/startup_manager.py" line="31"/>
-        <source>Ошибка: Не удалось создать папку автозагрузки: %0</source>
-        <translation>Error: Failed to create startup folder: %0</translation>
+        <source>Ошибка: Не удалось создать папку автозагрузки: {0}</source>
+        <translation>Error: Failed to create startup folder: {0}</translation>
     </message>
     <message>
         <location filename="../../app/startup_manager.py" line="36"/>
@@ -428,19 +482,19 @@ Please add folders in settings.</translation>
     </message>
     <message>
         <location filename="../../app/startup_manager.py" line="83"/>
-        <source>%0 - Фоновое отслеживание файлов</source>
-        <translation>%0 - Background file monitoring</translation>
+        <source>{0} - Фоновое отслеживание файлов</source>
+        <translation>{0} - Background file monitoring</translation>
     </message>
     <message>
         <location filename="../../app/startup_manager.py" line="88"/>
-        <source>Приложение &apos;%0&apos; успешно добавлено в автозагрузку.</source>
-        <translation>Application &apos;%0&apos; successfully added to startup.</translation>
+        <source>Приложение &apos;{0}&apos; успешно добавлено в автозагрузку.</source>
+        <translation>Application &apos;{0}&apos; successfully added to startup.</translation>
     </message>
     <message>
         <location filename="../../app/startup_manager.py" line="92"/>
-        <source>Ошибка при добавлении в автозагрузку: %0
+        <source>Ошибка при добавлении в автозагрузку: {0}
 Возможно, потребуются права администратора.</source>
-        <translation>Error adding to startup: %0
+        <translation>Error adding to startup: {0}
 Administrator privileges may be required.</translation>
     </message>
     <message>
@@ -450,20 +504,20 @@ Administrator privileges may be required.</translation>
     </message>
     <message>
         <location filename="../../app/startup_manager.py" line="114"/>
-        <source>Приложение &apos;%0&apos; успешно удалено из автозагрузки.</source>
-        <translation>Application &apos;%0&apos; successfully removed from startup.</translation>
+        <source>Приложение &apos;{0}&apos; успешно удалено из автозагрузки.</source>
+        <translation>Application &apos;{0}&apos; successfully removed from startup.</translation>
     </message>
     <message>
         <location filename="../../app/startup_manager.py" line="118"/>
-        <source>Ошибка при удалении из автозагрузки: %0
+        <source>Ошибка при удалении из автозагрузки: {0}
 Возможно, потребуются права администратора.</source>
-        <translation>Error removing from startup: %0
+        <translation>Error removing from startup: {0}
 Administrator privileges may be required.</translation>
     </message>
     <message>
         <location filename="../../app/startup_manager.py" line="123"/>
-        <source>Ярлык для &apos;%0&apos; не найден в автозагрузке.</source>
-        <translation>Shortcut for &apos;%0&apos; not found in startup.</translation>
+        <source>Ярлык для &apos;{0}&apos; не найден в автозагрузке.</source>
+        <translation>Shortcut for &apos;{0}&apos; not found in startup.</translation>
     </message>
 </context>
 <context>
@@ -475,149 +529,157 @@ Administrator privileges may be required.</translation>
     </message>
     <message>
         <location filename="../../app/theme_manager.py" line="65"/>
-        <source>Применена тема из %0</source>
-        <translation>Theme applied from %0</translation>
+        <source>Применена тема из {0}</source>
+        <translation>Theme applied from {0}</translation>
     </message>
     <message>
         <location filename="../../app/theme_manager.py" line="70"/>
-        <source>Ошибка - файл стилей не найден: %0</source>
-        <translation>Error - style file not found: %0</translation>
+        <source>Ошибка - файл стилей не найден: {0}</source>
+        <translation>Error - style file not found: {0}</translation>
     </message>
     <message>
         <location filename="../../app/theme_manager.py" line="75"/>
-        <source>Ошибка при загрузке или применении стилей %0: %1</source>
-        <translation>Error loading or applying styles %0: %1</translation>
+        <source>Ошибка при загрузке или применении стилей {0}: {1}</source>
+        <translation>Error loading or applying styles {0}: {1}</translation>
     </message>
     <message>
         <location filename="../../app/theme_manager.py" line="91"/>
-        <source>Неизвестная настройка темы: %0. Используется светлая тема по умолчанию.</source>
-        <translation>Unknown theme setting: %0. Using light theme by default.</translation>
+        <source>Неизвестная настройка темы: {0}. Используется светлая тема по умолчанию.</source>
+        <translation>Unknown theme setting: {0}. Using light theme by default.</translation>
     </message>
     <message>
         <location filename="../../app/theme_manager.py" line="104"/>
-        <source>Настройка темы изменена. Текущая тема: %0</source>
-        <translation>Theme setting changed. Current theme: %0</translation>
+        <source>Настройка темы изменена. Текущая тема: {0}</source>
+        <translation>Theme setting changed. Current theme: {0}</translation>
     </message>
 </context>
 <context>
     <name>TrayIcon</name>
     <message>
-        <location filename="../../app/tray_icon.py" line="40"/>
+        <location filename="../../app/tray_icon.py" line="41"/>
         <source>Backdraft: Инициализация...</source>
         <translation>Backdraft: Initializing...</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="75"/>
+        <location filename="../../app/tray_icon.py" line="76"/>
         <source>Backdraft - История</source>
         <translation>Backdraft - History</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="96"/>
+        <location filename="../../app/tray_icon.py" line="80"/>
         <source>Backdraft - Отслеживание</source>
         <translation>Backdraft - Monitoring</translation>
     </message>
     <message>
         <location filename="../../app/tray_icon.py" line="97"/>
-        <source>Список отслеживаемых папок обновлен. Перезапускаю мониторинг.</source>
-        <translation>Watched folders list updated. Restarting monitoring.</translation>
+        <source>Нет настроенных папок для отслеживания. Добавьте их в настройках.</source>
+        <translation>No configured folders to watch. Add them in settings.</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="102"/>
-        <source>Нет папок для отслеживания. Мониторинг остановлен.</source>
-        <translation>No folders to watch. Monitoring stopped.</translation>
-    </message>
-    <message>
-        <location filename="../../app/tray_icon.py" line="110"/>
+        <location filename="../../app/tray_icon.py" line="107"/>
         <source>Открыть историю версий</source>
         <translation>Open Version History</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="114"/>
+        <location filename="../../app/tray_icon.py" line="111"/>
         <source>Настройки</source>
         <translation>Settings</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="120"/>
+        <location filename="../../app/tray_icon.py" line="117"/>
+        <location filename="../../app/tray_icon.py" line="238"/>
         <source>Приостановить отслеживание</source>
         <translation>Pause Monitoring</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="129"/>
+        <location filename="../../app/tray_icon.py" line="123"/>
         <source>Выход</source>
         <translation>Exit</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="163"/>
+        <location filename="../../app/tray_icon.py" line="139"/>
         <source>Backdraft: Идет сканирование файлов...</source>
         <translation>Backdraft: Scanning files...</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="171"/>
-        <source>Backdraft: Мониторинг активен.</source>
-        <translation>Backdraft: Monitoring active.</translation>
+        <location filename="../../app/tray_icon.py" line="140"/>
+        <source>Сканирование...</source>
+        <translation>Scanning...</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="175"/>
-        <source>Нет папок для отслеживания. Мониторинг не запущен.</source>
-        <translation>No folders to watch. Monitoring not started.</translation>
+        <location filename="../../app/tray_icon.py" line="146"/>
+        <source>Backdraft: Идет очистка истории...</source>
+        <translation>Backdraft: Cleaning history...</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="184"/>
+        <location filename="../../app/tray_icon.py" line="147"/>
+        <source>Очистка истории...</source>
+        <translation>Cleaning history...</translation>
+    </message>
+    <message>
+        <location filename="../../app/tray_icon.py" line="152"/>
+        <source>Backdraft: Нет папок для отслеживания.</source>
+        <translation>Backdraft: No folders to watch.</translation>
+    </message>
+    <message>
+        <location filename="../../app/tray_icon.py" line="153"/>
+        <source>Нет папок для отслеживания</source>
+        <translation>No folders to watch</translation>
+    </message>
+    <message>
+        <location filename="../../app/tray_icon.py" line="159"/>
         <source>Backdraft: Мониторинг приостановлен.</source>
         <translation>Backdraft: Monitoring paused.</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="185"/>
+        <location filename="../../app/tray_icon.py" line="160"/>
+        <location filename="../../app/tray_icon.py" line="242"/>
         <source>Возобновить отслеживание</source>
         <translation>Resume Monitoring</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="186"/>
-        <source>Backdraft - Мониторинг</source>
-        <translation>Backdraft - Monitoring</translation>
-    </message>
-    <message>
-        <location filename="../../app/tray_icon.py" line="187"/>
-        <source>Отслеживание файлов приостановлено.</source>
-        <translation>File monitoring paused.</translation>
-    </message>
-    <message>
-        <location filename="../../app/tray_icon.py" line="193"/>
+        <location filename="../../app/tray_icon.py" line="163"/>
+        <location filename="../../app/tray_icon.py" line="236"/>
         <source>Backdraft: Мониторинг активен.</source>
         <translation>Backdraft: Monitoring active.</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="194"/>
-        <source>Приостановить отслеживание</source>
-        <translation>Pause Monitoring</translation>
+        <location filename="../../app/tray_icon.py" line="172"/>
+        <source>Backdraft: Мониторинг запускается...</source>
+        <translation>Backdraft: Monitoring starting...</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="195"/>
+        <location filename="../../app/tray_icon.py" line="237"/>
+        <source>Отслеживание файлов приостановлено.</source>
+        <translation>File monitoring paused.</translation>
+    </message>
+    <message>
+        <location filename="../../app/tray_icon.py" line="243"/>
         <source>Отслеживание файлов возобновлено.</source>
         <translation>File monitoring resumed.</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="199"/>
+        <location filename="../../app/tray_icon.py" line="247"/>
         <source>Нет папок для отслеживания. Мониторинг не может быть возобновлен.</source>
         <translation>No folders to watch. Monitoring cannot be resumed.</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="217"/>
+        <location filename="../../app/tray_icon.py" line="267"/>
         <source>Внимание: Указанный путь &apos;{0}&apos; не существует и будет проигнорирован.</source>
         <translation>Warning: The specified path &apos;{0}&apos; does not exist and will be ignored.</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="231"/>
+        <location filename="../../app/tray_icon.py" line="288"/>
         <source>Backdraft - Автозапуск</source>
         <translation>Backdraft - Startup</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="242"/>
+        <location filename="../../app/tray_icon.py" line="299"/>
         <source>Приложение закрывается. Останавливаю сервисы...</source>
         <translation>Application is closing. Stopping services...</translation>
     </message>
     <message>
-        <location filename="../../app/tray_icon.py" line="248"/>
+        <location filename="../../app/tray_icon.py" line="304"/>
         <source>Сервисы остановлены.</source>
         <translation>Services stopped.</translation>
     </message>

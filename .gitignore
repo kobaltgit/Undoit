@@ -21,3 +21,4 @@ venv/
 # Файлы Qt
 *.qm
 .DS_Store
+cortex-snapshot.json
