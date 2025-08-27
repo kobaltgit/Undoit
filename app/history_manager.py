@@ -56,7 +56,7 @@ class ScanWorker(QObject):
                          if self._should_stop:
                              break
                          file_path = Path(root) / name
-                         self.progress.emit(str(file_path))
+                         self.progress.emit(file_path.name) # <-- Исправлено: отправляем только имя
                          # 🔒 Перехватываем сбои на отдельном файле, чтобы не уронить весь поток
                          try:
                              self.history_manager.add_initial_version(file_path)
@@ -142,6 +142,7 @@ class HistoryManager(QObject):
     file_list_updated = Signal()
     version_added = Signal(int)
     history_notification = Signal(str, QSystemTrayIcon.MessageIcon)
+    scan_progress = Signal(str) # Сигнал о прогрессе сканирования (отправляет имя файла)
 
     DB_NAME = "metadata.db"
     OBJECTS_DIR = "objects"
@@ -234,6 +235,7 @@ class HistoryManager(QObject):
         self._scan_thread.finished.connect(self._scan_thread.deleteLater)
         self._scan_worker.finished.connect(self._on_scan_finished_internal)
         self._scan_worker.scan_notification.connect(self.history_notification)
+        self._scan_worker.progress.connect(self.scan_progress) # <-- Пробрасываем сигнал наружу
 
         self._scan_thread.start()
 

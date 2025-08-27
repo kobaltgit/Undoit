@@ -85,16 +85,10 @@ def main():
     )
     tray_icon.show()
 
-    # Соединяем сигналы уведомлений от менеджеров с общим слотом TrayIcon
-    config.config_notification.connect(lambda msg, icon: tray_icon.show_notification(
-        QApplication.translate("main", "Backdraft - Настройки"), msg, icon
-    ))
-    locale_manager.locale_notification.connect(lambda msg, icon: tray_icon.show_notification(
-        QApplication.translate("main", "Backdraft - Локализация"), msg, icon
-    ))
-    theme_manager.theme_notification.connect(lambda msg, icon: tray_icon.show_notification(
-        QApplication.translate("main", "Backdraft - Тема"), msg, icon
-    ))
+    # Соединяем сигналы уведомлений от менеджеров с новыми публичными слотами TrayIcon
+    config.config_notification.connect(tray_icon.on_config_notification)
+    locale_manager.locale_notification.connect(tray_icon.on_locale_notification)
+    theme_manager.theme_notification.connect(tray_icon.on_theme_notification)
 
     # Показываем приветственное сообщение, если это был первый запуск
     # и удалось добавить рабочий стол (т.е. paths_to_watch теперь не пуст).
