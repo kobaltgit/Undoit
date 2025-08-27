@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 from typing import Any, List
 
-from PySide6.QtCore import QObject, Signal # <-- Добавлен импорт Signal
+from PySide6.QtCore import QObject, Signal
+from PySide6.QtWidgets import QSystemTrayIcon # <-- Добавлен импорт для типа MessageIcon
 
 
 class ConfigManager(QObject):
@@ -12,7 +13,10 @@ class ConfigManager(QObject):
     Управляет настройками приложения, читая и сохраняя их в JSON-файл.
     """
     # Сигнал, испускаемый при изменении и сохранении любых настроек
-    settings_changed = Signal() # <-- Объявление нового сигнала
+    settings_changed = Signal()
+    # Сигнал для отправки уведомлений в трей.
+    # Аргументы: message (str), icon_type (QSystemTrayIcon.MessageIcon)
+    config_notification = Signal(str, QSystemTrayIcon.MessageIcon)
 
     CONFIG_DIR_NAME = "Backdraft"
     CONFIG_FILE_NAME = "config.json"
@@ -55,7 +59,11 @@ class ConfigManager(QObject):
                 # это сохранит новые ключи, если они появятся в будущих версиях
                 self._settings.update(loaded_settings)
         except (json.JSONDecodeError, IOError) as e:
-            print(f"Ошибка загрузки конфигурации: {e}. Будут использованы настройки по умолчанию.")
+            # print(f"Ошибка загрузки конфигурации: {e}. Будут использованы настройки по умолчанию.")
+            self.config_notification.emit(
+                self.tr("Ошибка загрузки конфигурации: {0}. Будут использованы настройки по умолчанию.").format(e),
+                QSystemTrayIcon.Warning
+            )
             self._settings = self._default_settings.copy()
 
     def save(self):
@@ -63,9 +71,19 @@ class ConfigManager(QObject):
         try:
             with open(self.config_path, 'w', encoding='utf-8') as f:
                 json.dump(self._settings, f, indent=4, ensure_ascii=False)
-            self.settings_changed.emit() # <-- Испускаем сигнал после успешного сохранения
+            self.settings_changed.emit()
+            # Уведомление об успешном сохранении можно сделать более детальным,
+            # но пока оставим только об изменении настроек.
+            # self.config_notification.emit(
+            #     self.tr("Настройки успешно сохранены."),
+            #     QSystemTrayIcon.Information
+            # )
         except IOError as e:
-            print(f"Ошибка сохранения конфигурации: {e}")
+            # print(f"Ошибка сохранения конфигурации: {e}")
+            self.config_notification.emit(
+                self.tr("Ошибка сохранения конфигурации: {0}").format(e),
+                QSystemTrayIcon.Critical
+            )
 
     def get(self, key: str, default: Any = None) -> Any:
         """Возвращает значение настройки по ключу."""

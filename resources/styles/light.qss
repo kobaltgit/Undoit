@@ -88,11 +88,11 @@ QComboBox::down-arrow {
 }
 
 /* Разделители (QSplitter::handle) */
-QSplitter::handle {
+/* QSplitter::handle {
     background-color: #cccccc;
     margin: 5px;
     border-radius: 2px;
-}
+} */
 
 QSplitter::handle:hover {
     background-color: #0078D4; /* Акцентный цвет при наведении */

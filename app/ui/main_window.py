@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (QFileDialog, QListWidgetItem, QMainWindow,
                                QMessageBox, QPushButton, QWidget, QHBoxLayout,
                                QSplitter, QListWidget, QTextEdit, QVBoxLayout,
                                QLabel, QLineEdit)
-from PySide6.QtGui import QIcon # <-- Добавлен импорт QIcon
+from PySide6.QtGui import QIcon
 
 from app.history_manager import HistoryManager
 
@@ -18,12 +18,12 @@ class HistoryWindow(QMainWindow):
     """
     Главное окно приложения для просмотра истории и восстановления файлов.
     """
-    def __init__(self, history_manager: HistoryManager, app_icon: QIcon, parent=None): # <-- Добавлен app_icon
+    def __init__(self, history_manager: HistoryManager, app_icon: QIcon, parent=None):
         super().__init__(parent)
         self.history_manager = history_manager
 
-        self.setWindowTitle("Backdraft - История версий")
-        self.setWindowIcon(app_icon) # <-- Устанавливаем иконку окна
+        self.setWindowTitle(self.tr("Backdraft - История версий")) # <-- Размечено для перевода
+        self.setWindowIcon(app_icon)
         self.resize(1200, 700)
 
         self._init_ui()
@@ -43,12 +43,12 @@ class HistoryWindow(QMainWindow):
         files_layout.setSpacing(8)
 
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Поиск файлов...")
+        self.search_input.setPlaceholderText(self.tr("Поиск файлов...")) # <-- Размечено для перевода
         self.search_input.setMinimumHeight(32)
 
         self.files_list = QListWidget()
 
-        files_layout.addWidget(QLabel("Отслеживаемые файлы:"))
+        files_layout.addWidget(QLabel(self.tr("Отслеживаемые файлы:"))) # <-- Размечено для перевода
         files_layout.addWidget(self.search_input)
         files_layout.addWidget(self.files_list)
 
@@ -60,7 +60,7 @@ class HistoryWindow(QMainWindow):
 
         self.versions_list = QListWidget()
 
-        versions_layout.addWidget(QLabel("Сохраненные версии:"))
+        versions_layout.addWidget(QLabel(self.tr("Сохраненные версии:"))) # <-- Размечено для перевода
         versions_layout.addWidget(self.versions_list)
 
         # --- Панель 3: Превью и действия ---
@@ -75,8 +75,8 @@ class HistoryWindow(QMainWindow):
 
         # Создаем контейнер для кнопок
         buttons_layout = QHBoxLayout()
-        self.save_as_button = QPushButton("Сохранить как...")
-        self.restore_button = QPushButton("Восстановить эту версию")
+        self.save_as_button = QPushButton(self.tr("Сохранить как...")) # <-- Размечено для перевода
+        self.restore_button = QPushButton(self.tr("Восстановить эту версию")) # <-- Размечено для перевода
 
         # Кнопки изначально неактивны
         self.save_as_button.setEnabled(False)
@@ -85,7 +85,7 @@ class HistoryWindow(QMainWindow):
         buttons_layout.addWidget(self.save_as_button)
         buttons_layout.addWidget(self.restore_button)
 
-        preview_layout.addWidget(QLabel("Предпросмотр:"))
+        preview_layout.addWidget(QLabel(self.tr("Предпросмотр:"))) # <-- Размечено для перевода
         preview_layout.addWidget(self.preview_text)
         preview_layout.addLayout(buttons_layout)
 
@@ -161,7 +161,8 @@ class HistoryWindow(QMainWindow):
 
             formatted_size = self._format_size(file_size)
 
-            item = QListWidgetItem(f"{formatted_time} ({formatted_size})")
+            # <-- Форматированная строка для перевода
+            item = QListWidgetItem(self.tr("{0} ({1})").format(formatted_time, formatted_size))
             item.setData(Qt.ItemDataRole.UserRole, sha256_hash)
             self.versions_list.addItem(item)
 
@@ -180,7 +181,8 @@ class HistoryWindow(QMainWindow):
         object_path = self.history_manager.get_object_path(sha256_hash)
 
         if not object_path:
-            self.preview_text.setText(f"Ошибка: не удалось найти файл с хешем {sha256_hash[:8]}...")
+            # <-- Сообщение для перевода
+            self.preview_text.setText(self.tr("Ошибка: не удалось найти файл с хешем {0}...").format(sha256_hash[:8]))
             return
 
         try:
@@ -188,7 +190,7 @@ class HistoryWindow(QMainWindow):
                 content = f.read()
             self.preview_text.setText(content)
         except (UnicodeDecodeError, IOError):
-            self.preview_text.setText("Предпросмотр недоступен для этого типа файла.")
+            self.preview_text.setText(self.tr("Предпросмотр недоступен для этого типа файла.")) # <-- Размечено для перевода
 
     def _on_save_as(self):
         """Слот для кнопки 'Сохранить как...'."""
@@ -201,15 +203,20 @@ class HistoryWindow(QMainWindow):
         sha256_hash = version_item.data(Qt.ItemDataRole.UserRole)
         object_path = self.history_manager.get_object_path(sha256_hash)
 
-        suggested_name = f"{original_path.stem} (восстановлено){original_path.suffix}"
+        # <-- Форматированная строка для имени файла
+        suggested_name = self.tr("{0} (восстановлено){1}").format(original_path.stem, original_path.suffix)
 
-        save_path, _ = QFileDialog.getSaveFileName(self, "Сохранить версию как...", str(original_path.parent / suggested_name))
+        save_path, _ = QFileDialog.getSaveFileName(self, 
+            self.tr("Сохранить версию как..."), # <-- Размечено для перевода
+            str(original_path.parent / suggested_name)
+        )
 
         if save_path:
             try:
                 shutil.copy2(object_path, save_path)
             except IOError as e:
-                QMessageBox.critical(self, "Ошибка", f"Не удалось сохранить файл:\n{e}")
+                # <-- Сообщение для перевода
+                QMessageBox.critical(self, self.tr("Ошибка"), self.tr("Не удалось сохранить файл:\n{0}").format(e))
 
     def _on_restore(self):
         """Слот для кнопки 'Восстановить'."""
@@ -223,10 +230,14 @@ class HistoryWindow(QMainWindow):
         sha256_hash = version_item.data(Qt.ItemDataRole.UserRole)
         object_path = self.history_manager.get_object_path(sha256_hash)
 
-        reply = QMessageBox.question(self, "Подтверждение", 
-            f"Вы уверены, что хотите восстановить файл:\n\n{original_path_str}\n\n"
-            f"Текущая версия файла будет перезаписана (но предварительно сохранена в истории).",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel)
+        reply = QMessageBox.question(self, 
+            self.tr("Подтверждение"), # <-- Размечено для перевода
+            self.tr( # <-- Сообщение для перевода
+                "Вы уверены, что хотите восстановить файл:\n\n{0}\n\n"
+                "Текущая версия файла будет перезаписана (но предварительно сохранена в истории)."
+            ).format(original_path_str),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel
+        )
 
         if reply == QMessageBox.StandardButton.Yes:
             try:
@@ -236,20 +247,22 @@ class HistoryWindow(QMainWindow):
 
                 self._on_file_selected(file_item, None)
 
-                QMessageBox.information(self, "Успех", "Файл успешно восстановлен.")
+                # <-- Сообщение для перевода
+                QMessageBox.information(self, self.tr("Успех"), self.tr("Файл успешно восстановлен."))
             except (IOError, OSError) as e:
-                QMessageBox.critical(self, "Ошибка", f"Не удалось восстановить файл:\n{e}")
+                # <-- Сообщение для перевода
+                QMessageBox.critical(self, self.tr("Ошибка"), self.tr("Не удалось восстановить файл:\n{0}").format(e))
 
     def _format_size(self, size_bytes: int) -> str:
         """Форматирует размер файла в удобочитаемый вид."""
         if size_bytes < 1024:
-            return f"{size_bytes} B"
+            return self.tr("{0} B").format(size_bytes) # <-- Размечено для перевода
         elif size_bytes < 1024 ** 2:
-            return f"{size_bytes / 1024:.1f} KB"
+            return self.tr("{0:.1f} KB").format(size_bytes / 1024) # <-- Размечено для перевода
         elif size_bytes < 1024 ** 3:
-            return f"{size_bytes / (1024 ** 2):.1f} MB"
+            return self.tr("{0:.1f} MB").format(size_bytes / (1024 ** 2)) # <-- Размечено для перевода
         else:
-            return f"{size_bytes / (1024 ** 3):.1f} GB"
+            return self.tr("{0:.1f} GB").format(size_bytes / (1024 ** 3)) # <-- Размечено для перевода
 
     def _load_styles(self):
         """Загружает и применяет стили QSS."""

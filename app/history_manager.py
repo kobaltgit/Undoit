@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import List
 
 from PySide6.QtCore import QObject, Signal, Slot, QThread
+from PySide6.QtWidgets import QSystemTrayIcon # <-- Добавлен импорт для типа MessageIcon
 
 
 class ScannerWorker(QObject):
@@ -17,6 +18,8 @@ class ScannerWorker(QObject):
     """
     finished = Signal()
     progress = Signal(str)  # Сигнал для отображения текущего сканируемого файла
+    # Сигнал для отправки уведомлений в трей из рабочего потока
+    scanner_notification = Signal(str, QSystemTrayIcon.MessageIcon)
 
     def __init__(self, history_manager, paths_to_scan: List[str]):
         super().__init__()
@@ -25,7 +28,11 @@ class ScannerWorker(QObject):
 
     def run(self):
         """Основной метод, выполняющий сканирование."""
-        print("ScannerWorker: Началось фоновое сканирование...")
+        # print("ScannerWorker: Началось фоновое сканирование...")
+        self.scanner_notification.emit(
+            self.tr("Началось фоновое сканирование файлов..."),
+            QSystemTrayIcon.Information
+        )
         for path_str in self.paths_to_scan:
             path = Path(path_str)
             for root, _, files in os.walk(path):
@@ -33,8 +40,12 @@ class ScannerWorker(QObject):
                     file_path = Path(root) / name
                     self.progress.emit(str(file_path))
                     self.history_manager.add_initial_version(file_path)
-        
-        print("ScannerWorker: Сканирование завершено.")
+
+        # print("ScannerWorker: Сканирование завершено.")
+        self.scanner_notification.emit(
+            self.tr("Фоновое сканирование завершено."),
+            QSystemTrayIcon.Information
+        )
         self.finished.emit()
 
 
@@ -48,6 +59,9 @@ class HistoryManager(QObject):
     file_list_updated = Signal()
     # Сигнал, испускаемый, когда добавляется новая версия для существующего файла
     version_added = Signal(int) # int - это file_id
+    # Сигнал для отправки уведомлений в трей.
+    # Аргументы: message (str), icon_type (QSystemTrayIcon.MessageIcon)
+    history_notification = Signal(str, QSystemTrayIcon.MessageIcon)
 
     DB_NAME = "metadata.db"
     OBJECTS_DIR = "objects"
@@ -78,6 +92,8 @@ class HistoryManager(QObject):
         self._worker.finished.connect(self._worker.deleteLater)
         self._thread.finished.connect(self._thread.deleteLater)
         self._worker.finished.connect(self.initial_scan_finished)
+        # Соединяем сигнал уведомлений от рабочего потока к сигналу менеджера
+        self._worker.scanner_notification.connect(self.history_notification)
 
         self._thread.start()
 
@@ -89,16 +105,23 @@ class HistoryManager(QObject):
             return # Файл уже отслеживается, ничего не делаем
 
         self._add_version_from_path(file_path)
-        
+
     @Slot(str)
     def add_file_version(self, file_path_str: str):
         """Основной метод. Вызывается при изменении файла."""
         file_path = Path(file_path_str)
         if not file_path.is_file():
+            # Это может быть удаление файла или изменение каталога, что мы игнорируем
+            # Уведомление здесь обычно не требуется.
             return
-            
+
         file_hash = self._calculate_hash(file_path)
         if not file_hash:
+            # print(f"Ошибка: Не удалось рассчитать хеш для файла {file_path}")
+            self.history_notification.emit(
+                self.tr("Ошибка: не удалось рассчитать хеш для файла {0}").format(file_path.name),
+                QSystemTrayIcon.Warning
+            )
             return
 
         cursor = self._db_connection.cursor()
@@ -111,7 +134,7 @@ class HistoryManager(QObject):
         last_version = cursor.fetchone()
 
         if last_version and last_version[0] == file_hash:
-            return
+            return # Файл не изменился, новую версию не добавляем
 
         self._add_version_from_path(file_path, file_hash)
 
@@ -126,7 +149,7 @@ class HistoryManager(QObject):
             "SELECT id, original_path FROM tracked_files ORDER BY original_path ASC"
         )
         return cursor.fetchall()
-    
+
     def get_versions_for_file(self, file_id: int) -> List[tuple]:
         """
         Возвращает все сохраненные версии для указанного file_id.
@@ -141,7 +164,7 @@ class HistoryManager(QObject):
             ORDER BY timestamp DESC
         """, (file_id,))
         return cursor.fetchall()
-    
+
     def get_object_path(self, sha256_hash: str) -> Path | None:
         """
         Возвращает путь к файлу-объекту в хранилище по его хешу.
@@ -157,19 +180,33 @@ class HistoryManager(QObject):
 
         file_hash = precalculated_hash or self._calculate_hash(file_path)
         if not file_hash:
-            print(f"Ошибка: Не удалось прочитать файл {file_path}")
+            # Это уже обрабатывается в add_file_version, но для _add_version_from_path
+            # в контексте initial_scan тоже нужно (хотя add_initial_version не передает precalculated_hash)
+            # print(f"Ошибка: Не удалось прочитать файл {file_path}")
+            self.history_notification.emit(
+                self.tr("Ошибка: не удалось прочитать файл {0}").format(file_path.name),
+                QSystemTrayIcon.Warning
+            )
             return
-            
+
         file_size = file_path.stat().st_size
-        
+
         object_subdir = self.objects_path / file_hash[:2]
         object_path = object_subdir / file_hash[2:]
         if not object_path.exists():
-            object_subdir.mkdir(exist_ok=True)
-            shutil.copy2(file_path, object_path)
+            try:
+                object_subdir.mkdir(exist_ok=True)
+                shutil.copy2(file_path, object_path)
+            except IOError as e:
+                # print(f"Ошибка сохранения копии файла {file_path} в хранилище: {e}")
+                self.history_notification.emit(
+                    self.tr("Ошибка сохранения копии файла {0} в хранилище: {1}").format(file_path.name, e),
+                    QSystemTrayIcon.Critical
+                )
+                return
 
         cursor = self._db_connection.cursor()
-        
+
         # Проверяем, существует ли файл в нашей БД
         cursor.execute("SELECT id FROM tracked_files WHERE original_path = ?", (str(file_path),))
         file_id_result = cursor.fetchone()
@@ -188,14 +225,32 @@ class HistoryManager(QObject):
             "INSERT INTO versions (file_id, timestamp, sha256_hash, file_size) VALUES (?, ?, ?, ?)",
             (file_id, timestamp, file_hash, file_size)
         )
-        self._db_connection.commit()
+        try:
+            self._db_connection.commit()
+        except sqlite3.Error as e:
+            # print(f"Ошибка при сохранении версии в БД для файла {file_path}: {e}")
+            self.history_notification.emit(
+                self.tr("Ошибка при сохранении версии в БД для файла {0}: {1}").format(file_path.name, e),
+                QSystemTrayIcon.Critical
+            )
+            return
+
 
         # Оповещаем UI, что данные изменились
         self.version_added.emit(file_id)
         if was_new_file:
             self.file_list_updated.emit()
+            self.history_notification.emit(
+                self.tr("Добавлен новый файл для отслеживания: {0}").format(file_path.name),
+                QSystemTrayIcon.Information
+            )
+        else:
+            self.history_notification.emit(
+                self.tr("Сохранена новая версия файла: {0}").format(file_path.name),
+                QSystemTrayIcon.Information
+            )
 
-        print(f"Сохранена версия для: {file_path.name} | Хеш: {file_hash[:8]}...")
+        # print(f"Сохранена версия для: {file_path.name} | Хеш: {file_hash[:8]}...")
 
     def _calculate_hash(self, file_path: Path) -> str:
         sha256 = hashlib.sha256()
@@ -208,20 +263,38 @@ class HistoryManager(QObject):
             return None
 
     def _setup_storage(self):
-        self.storage_path.mkdir(parents=True, exist_ok=True)
-        self.objects_path.mkdir(exist_ok=True)
+        try:
+            self.storage_path.mkdir(parents=True, exist_ok=True)
+            self.objects_path.mkdir(exist_ok=True)
+        except OSError as e:
+            # print(f"Ошибка создания папки хранилища: {e}")
+            self.history_notification.emit(
+                self.tr("Ошибка создания папки хранилища: {0}").format(e),
+                QSystemTrayIcon.Critical
+            )
 
     def _setup_database(self):
-        cursor = self._db_connection.cursor()
-        cursor.execute("CREATE TABLE IF NOT EXISTS tracked_files (id INTEGER PRIMARY KEY, original_path TEXT NOT NULL UNIQUE)")
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS versions (
-                id INTEGER PRIMARY KEY, file_id INTEGER NOT NULL, timestamp TEXT NOT NULL,
-                sha256_hash TEXT NOT NULL, file_size INTEGER NOT NULL,
-                FOREIGN KEY (file_id) REFERENCES tracked_files (id)
-            )""")
-        self._db_connection.commit()    
+        try:
+            cursor = self._db_connection.cursor()
+            cursor.execute("CREATE TABLE IF NOT EXISTS tracked_files (id INTEGER PRIMARY KEY, original_path TEXT NOT NULL UNIQUE)")
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS versions (
+                    id INTEGER PRIMARY KEY, file_id INTEGER NOT NULL, timestamp TEXT NOT NULL,
+                    sha256_hash TEXT NOT NULL, file_size INTEGER NOT NULL,
+                    FOREIGN KEY (file_id) REFERENCES tracked_files (id)
+                )""")
+            self._db_connection.commit()
+        except sqlite3.Error as e:
+            # print(f"Ошибка инициализации базы данных: {e}")
+            self.history_notification.emit(
+                self.tr("Ошибка инициализации базы данных: {0}").format(e),
+                QSystemTrayIcon.Critical
+            )
 
     def close(self):
         if self._db_connection:
             self._db_connection.close()
+            # self.history_notification.emit(
+            #     self.tr("Соединение с базой данных закрыто."),
+            #     QSystemTrayIcon.Information
+            # )

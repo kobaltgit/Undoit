@@ -108,15 +108,23 @@ class SettingsWindow(QDialog):
         super().__init__(parent)
         self.config_manager = config_manager
 
-        self.setWindowTitle("Backdraft - Настройки")
+        self.setWindowTitle(self.tr("Backdraft - Настройки")) # <-- Размечено для перевода
         self.setWindowIcon(app_icon)
         self.setMinimumWidth(500)
 
-        # <-- НОВОЕ: Словари для прямого и обратного сопоставления
-        self._theme_display_to_key_map = {"Авто": "auto", "Светлая": "light", "Темная": "dark"}
+        # <-- ИСПРАВЛЕНИЕ: Словари для прямого и обратного сопоставления с _переводимыми_ ключами
+        self._theme_display_to_key_map = {
+            self.tr("Авто"): "auto", 
+            self.tr("Светлая"): "light", 
+            self.tr("Темная"): "dark"
+        }
         self._theme_key_to_display_map = {v: k for k, v in self._theme_display_to_key_map.items()}
 
-        self._lang_display_to_key_map = {"Авто": "auto", "Русский": "ru", "English": "en"}
+        self._lang_display_to_key_map = {
+            self.tr("Авто"): "auto", 
+            self.tr("Русский"): "ru", 
+            self.tr("English"): "en"
+        }
         self._lang_key_to_display_map = {v: k for k, v in self._lang_display_to_key_map.items()}
         # -->
 
@@ -127,15 +135,16 @@ class SettingsWindow(QDialog):
         main_layout = QVBoxLayout(self)
 
         # --- Секция "Отслеживаемые папки" ---
-        folders_group = QGroupBox("Отслеживаемые папки")
+        folders_group = QGroupBox(self.tr("Отслеживаемые папки")) # <-- Размечено для перевода
         folders_layout = QVBoxLayout()
 
         self.paths_list = QListWidget()
+        # self.paths_list.setPlaceholderText(self.tr("Добавьте папки для отслеживания")) # Можно добавить плейсхолдер
         self.paths_list.itemSelectionChanged.connect(self._update_buttons_state)
 
         buttons_layout = QHBoxLayout()
-        add_button = QPushButton("Добавить папку")
-        self.remove_button = QPushButton("Удалить выбранную")
+        add_button = QPushButton(self.tr("Добавить папку")) # <-- Размечено для перевода
+        self.remove_button = QPushButton(self.tr("Удалить выбранную")) # <-- Размечено для перевода
         add_button.clicked.connect(self._add_path)
         self.remove_button.clicked.connect(self._remove_path)
 
@@ -147,28 +156,28 @@ class SettingsWindow(QDialog):
         folders_group.setLayout(folders_layout)
 
         # --- Секция "Основные настройки" ---
-        general_group = QGroupBox("Основные")
+        general_group = QGroupBox(self.tr("Основные")) # <-- Размечено для перевода
         general_layout = QHBoxLayout()
         self.startup_switch = Switch()
-        general_layout.addWidget(QLabel("Запускать при старте системы"))
+        general_layout.addWidget(QLabel(self.tr("Запускать при старте системы"))) # <-- Размечено для перевода
         general_layout.addStretch()
         general_layout.addWidget(self.startup_switch)
         general_group.setLayout(general_layout)
 
         # --- Секция "Внешний вид" ---
-        appearance_group = QGroupBox("Внешний вид")
+        appearance_group = QGroupBox(self.tr("Внешний вид")) # <-- Размечено для перевода
         appearance_layout = QVBoxLayout()
 
         theme_layout = QHBoxLayout()
         self.theme_combo = QComboBox()
-        self.theme_combo.addItems(list(self._theme_display_to_key_map.keys())) # <-- Используем ключи отображения
-        theme_layout.addWidget(QLabel("Тема приложения:"))
+        self.theme_combo.addItems(list(self._theme_display_to_key_map.keys())) # <-- Используем переводимые ключи отображения
+        theme_layout.addWidget(QLabel(self.tr("Тема приложения:"))) # <-- Размечено для перевода
         theme_layout.addWidget(self.theme_combo)
 
         lang_layout = QHBoxLayout()
         self.lang_combo = QComboBox()
-        self.lang_combo.addItems(list(self._lang_display_to_key_map.keys())) # <-- Используем ключи отображения
-        lang_layout.addWidget(QLabel("Язык интерфейса:"))
+        self.lang_combo.addItems(list(self._lang_display_to_key_map.keys())) # <-- Используем переводимые ключи отображения
+        lang_layout.addWidget(QLabel(self.tr("Язык интерфейса:"))) # <-- Размечено для перевода
         lang_layout.addWidget(self.lang_combo)
 
         appearance_layout.addLayout(theme_layout)
@@ -176,7 +185,7 @@ class SettingsWindow(QDialog):
         appearance_group.setLayout(appearance_layout)
 
         # --- Кнопка закрытия ---
-        self.close_button = QPushButton("Закрыть")
+        self.close_button = QPushButton(self.tr("Закрыть")) # <-- Размечено для перевода
         self.close_button.clicked.connect(self.accept)
 
         main_layout.addWidget(folders_group)
@@ -188,11 +197,9 @@ class SettingsWindow(QDialog):
         self.startup_switch.toggled.connect(
             lambda checked: self.config_manager.set("launch_on_startup", checked)
         )
-        # <-- ИСПРАВЛЕНИЕ: Используем _theme_display_to_key_map для сохранения
         self.theme_combo.currentTextChanged.connect(
             lambda text: self.config_manager.set("theme", self._theme_display_to_key_map.get(text, "auto"))
         )
-        # <-- ИСПРАВЛЕНИЕ: Используем _lang_display_to_key_map для сохранения
         self.lang_combo.currentTextChanged.connect(
             lambda text: self.config_manager.set("language", self._lang_display_to_key_map.get(text, "auto"))
         )
@@ -210,13 +217,11 @@ class SettingsWindow(QDialog):
         self.startup_switch.setChecked(self.config_manager.get("launch_on_startup", False), animate=False)
 
         # Выпадающие списки
-        # <-- ИСПРАВЛЕНИЕ: Используем _theme_key_to_display_map для загрузки
         current_theme_key = self.config_manager.get("theme", "auto")
-        self.theme_combo.setCurrentText(self._theme_key_to_display_map.get(current_theme_key, "Авто"))
+        self.theme_combo.setCurrentText(self._theme_key_to_display_map.get(current_theme_key, self.tr("Авто"))) # <-- Используем переводимый "Авто"
 
-        # <-- ИСПРАВЛЕНИЕ: Используем _lang_key_to_display_map для загрузки
         current_lang_key = self.config_manager.get("language", "auto")
-        self.lang_combo.setCurrentText(self._lang_key_to_display_map.get(current_lang_key, "Авто"))
+        self.lang_combo.setCurrentText(self._lang_key_to_display_map.get(current_lang_key, self.tr("Авто"))) # <-- Используем переводимый "Авто"
 
     def _update_buttons_state(self):
         """Обновляет состояние кнопок (вкл/выкл)."""
@@ -225,7 +230,7 @@ class SettingsWindow(QDialog):
     @Slot()
     def _add_path(self):
         """Открывает диалог выбора папки и добавляет ее в список."""
-        dir_path = QFileDialog.getExistingDirectory(self, "Выберите папку для отслеживания")
+        dir_path = QFileDialog.getExistingDirectory(self, self.tr("Выберите папку для отслеживания")) # <-- Размечено для перевода
         if dir_path:
             current_paths = [self.paths_list.item(i).text() for i in range(self.paths_list.count())]
             if dir_path not in current_paths:

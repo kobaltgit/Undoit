@@ -4,8 +4,8 @@ import sys
 import os
 from pathlib import Path
 
-from PySide6.QtCore import QObject, Slot, Signal # <-- Добавлен импорт Signal
-from PySide6.QtWidgets import QSystemTrayIcon # <-- Добавлен импорт для типа MessageIcon
+from PySide6.QtCore import QObject, Slot, Signal
+from PySide6.QtWidgets import QSystemTrayIcon
 
 # pywin32 нужен для создания ярлыков в Windows
 try:
@@ -14,9 +14,15 @@ try:
     PYWIN32_AVAILABLE = True
 except ImportError:
     PYWIN32_AVAILABLE = False
-    print("Внимание: библиотека 'pywin32' не найдена. Функции автозапуска Windows будут недоступны.")
-    print("Пожалуйста, установите ее: pip install pywin32")
-
+    # Вместо print, StartupManager теперь будет испускать сигнал
+    # Он будет пойман TrayIcon'ом и показан как уведомление
+    # self.startup_action_completed.emit(
+    #     "Внимание: библиотека 'pywin32' не найдена. Функции автозапуска Windows будут недоступны. Пожалуйста, установите ее: pip install pywin32",
+    #     QSystemTrayIcon.Warning
+    # )
+    # Однако, это должно быть сделано в конструкторе или в TrayIcon, а не здесь
+    # так как self здесь еще нет.
+    pass # Оставим как есть, так как print используется для фатальной ошибки импорта
 
 class StartupManager(QObject):
     """
@@ -25,7 +31,7 @@ class StartupManager(QObject):
     """
     # Сигнал, испускаемый при завершении операции автозапуска (успех/ошибка)
     # Аргументы: message (str), icon_type (QSystemTrayIcon.MessageIcon)
-    startup_action_completed = Signal(str, QSystemTrayIcon.MessageIcon) # <-- Объявление нового сигнала
+    startup_action_completed = Signal(str, QSystemTrayIcon.MessageIcon)
 
     def __init__(self, app_name: str, app_executable_path: Path, parent=None):
         super().__init__(parent)
@@ -33,18 +39,28 @@ class StartupManager(QObject):
         self.app_executable_path = app_executable_path
         self._startup_folder = None
 
-        if sys.platform == 'win32' and PYWIN32_AVAILABLE:
-            self._startup_folder = self._get_windows_startup_folder()
-            if not self._startup_folder.exists():
-                try:
-                    self._startup_folder.mkdir(parents=True, exist_ok=True)
-                except OSError as e:
-                    print(f"Ошибка: Не удалось создать папку автозагрузки: {e}")
-                    self._startup_folder = None
-        elif sys.platform != 'win32':
-            # Вместо print, можно сразу испустить сигнал об ошибке, если это необходимо
-            # self.startup_action_completed.emit("Функция автозапуска доступна только для Windows.", QSystemTrayIcon.Warning)
-            pass # Не выдаем уведомление, т.к. пользователь может быть не на Windows
+        if sys.platform == 'win32':
+            if PYWIN32_AVAILABLE:
+                self._startup_folder = self._get_windows_startup_folder()
+                if not self._startup_folder.exists():
+                    try:
+                        self._startup_folder.mkdir(parents=True, exist_ok=True)
+                    except OSError as e:
+                        # print(f"Ошибка: Не удалось создать папку автозагрузки: {e}")
+                        self.startup_action_completed.emit(
+                            self.tr("Ошибка: Не удалось создать папку автозагрузки: {0}").format(e),
+                            QSystemTrayIcon.Critical
+                        )
+                        self._startup_folder = None
+            else:
+                # Если pywin32 недоступен, сообщаем об этом через сигнал
+                self.startup_action_completed.emit(
+                    self.tr("Библиотека 'pywin32' не найдена. Функции автозапуска Windows будут недоступны. Пожалуйста, установите ее: pip install pywin32"),
+                    QSystemTrayIcon.Warning
+                )
+        else:
+            # Для не-Windows систем не выдаём уведомление, т.к. функция недоступна по определению
+            pass
 
     def _get_windows_startup_folder(self) -> Path | None:
         """
@@ -72,7 +88,7 @@ class StartupManager(QObject):
         if not (sys.platform == 'win32' and PYWIN32_AVAILABLE and self._startup_folder):
             if sys.platform == 'win32' and not PYWIN32_AVAILABLE:
                 self.startup_action_completed.emit(
-                    "Невозможно добавить в автозагрузку: библиотека 'pywin32' не установлена.",
+                    self.tr("Невозможно добавить в автозагрузку: библиотека 'pywin32' не установлена."),
                     QSystemTrayIcon.Warning
                 )
             # Для не-Windows систем не выдаём уведомление, т.к. функция недоступна по определению
@@ -81,7 +97,7 @@ class StartupManager(QObject):
         shortcut_path = self._get_shortcut_path()
         if not shortcut_path:
             self.startup_action_completed.emit(
-                "Невозможно добавить в автозагрузку: не удалось определить путь для ярлыка.",
+                self.tr("Невозможно добавить в автозагрузку: не удалось определить путь для ярлыка."),
                 QSystemTrayIcon.Critical
             )
             return
@@ -92,18 +108,18 @@ class StartupManager(QObject):
             shortcut = shell.CreateShortcut(str(shortcut_path)) # str() для совместимости
             shortcut.TargetPath = str(self.app_executable_path)
             shortcut.WorkingDirectory = str(self.app_executable_path.parent)
-            shortcut.Description = f"{self.app_name} - Фоновое отслеживание файлов"
+            shortcut.Description = self.tr("{0} - Фоновое отслеживание файлов").format(self.app_name)
             shortcut.IconLocation = str(self.app_executable_path)
             shortcut.save()
 
             self.startup_action_completed.emit(
-                f"Приложение '{self.app_name}' успешно добавлено в автозагрузку.",
+                self.tr("Приложение '{0}' успешно добавлено в автозагрузку.").format(self.app_name),
                 QSystemTrayIcon.Information
             )
         except Exception as e:
             self.startup_action_completed.emit(
-                f"Ошибка при добавлении в автозагрузку: {e}\n"
-                "Возможно, потребуются права администратора.",
+                self.tr("Ошибка при добавлении в автозагрузку: {0}\n"
+                        "Возможно, потребуются права администратора.").format(e),
                 QSystemTrayIcon.Critical
             )
         finally:
@@ -114,7 +130,7 @@ class StartupManager(QObject):
         if not (sys.platform == 'win32' and PYWIN32_AVAILABLE and self._startup_folder):
             if sys.platform == 'win32' and not PYWIN32_AVAILABLE:
                 self.startup_action_completed.emit(
-                    "Невозможно удалить из автозагрузки: библиотека 'pywin32' не установлена.",
+                    self.tr("Невозможно удалить из автозагрузки: библиотека 'pywin32' не установлена."),
                     QSystemTrayIcon.Warning
                 )
             return
@@ -124,18 +140,18 @@ class StartupManager(QObject):
             try:
                 os.remove(shortcut_path)
                 self.startup_action_completed.emit(
-                    f"Приложение '{self.app_name}' успешно удалено из автозагрузки.",
+                    self.tr("Приложение '{0}' успешно удалено из автозагрузки.").format(self.app_name),
                     QSystemTrayIcon.Information
                 )
             except OSError as e:
                 self.startup_action_completed.emit(
-                    f"Ошибка при удалении из автозагрузки: {e}\n"
-                    "Возможно, потребуются права администратора.",
+                    self.tr("Ошибка при удалении из автозагрузки: {0}\n"
+                            "Возможно, потребуются права администратора.").format(e),
                     QSystemTrayIcon.Critical
                 )
         else:
             self.startup_action_completed.emit(
-                f"Ярлык для '{self.app_name}' не найден в автозагрузке.",
+                self.tr("Ярлык для '{0}' не найден в автозагрузке.").format(self.app_name),
                 QSystemTrayIcon.Warning
             )
 
