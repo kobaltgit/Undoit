@@ -43,7 +43,15 @@ class ChangeHandler(FileSystemEventHandler):
         return False # Не попал ни под одно правило
 
     def on_modified(self, event: FileSystemEvent):
-        if not event.is_directory and self._is_path_allowed(event.src_path):
+        if Path(event.src_path).is_file() and not event.is_directory and self._is_path_allowed(event.src_path):
+            self.file_modified.emit(event.src_path)
+
+    def on_created(self, event: FileSystemEvent):
+        # Отслеживаем новые файлы
+        # Необходимо добавить небольшую задержку, чтобы файл успел быть полностью записан.
+        # Watchdog может генерировать on_created, когда файл еще не полностью доступен.
+        # HistoryManager.add_file_version и так обрабатывает это, но явная проверка не помешает.
+        if Path(event.src_path).is_file() and not event.is_directory and self._is_path_allowed(event.src_path):
             self.file_modified.emit(event.src_path)
 
 

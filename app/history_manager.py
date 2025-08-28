@@ -438,10 +438,19 @@ class HistoryManager(QObject):
         remaining_versions_count = cursor.fetchone()[0]
 
         if remaining_versions_count == 0:
+            # --- ИЗМЕНЕНИЕ НАЧАЛО ---
+            # Получаем original_path перед удалением файла из tracked_files
+            cursor.execute("SELECT original_path FROM tracked_files WHERE id = ?", (file_id,))
+            original_path_result = cursor.fetchone()
+            original_path_str = original_path_result[0] if original_path_result else None
+
             cursor.execute("DELETE FROM tracked_files WHERE id = ?", (file_id,))
             self.history_notification.emit(self.tr("Отслеживаемый файл (ID {0}) удален, так как не осталось версий.").format(file_id), QSystemTrayIcon.Information)
+
             # Испускаем сигнал, что файл полностью удален (для обновления списка файлов)
-            self.files_deleted.emit([file_id])
+            if original_path_str:
+                self.files_deleted.emit([(file_id, original_path_str)])
+            # --- ИЗМЕНЕНИЕ КОНЕЦ ---
 
         # 3. Проверяем, есть ли еще ссылки на этот объект (хеш) в других версиях
         cursor.execute("SELECT COUNT(*) FROM versions WHERE sha256_hash = ?", (sha256_hash,))
@@ -506,6 +515,7 @@ class HistoryManager(QObject):
         affected_file_ids: Set[int] = set()
         affected_hashes: Set[str] = set()
         file_ids_completely_removed: List[int] = []
+        files_completely_removed_info: List[Tuple[int, str]] = [] # Для сигнала files_deleted
 
         if not versions_data:
             return 0, []
@@ -529,6 +539,12 @@ class HistoryManager(QObject):
                     for file_id in list(affected_file_ids): # Используем list() чтобы избежать изменения во время итерации
                         cursor.execute("SELECT COUNT(*) FROM versions WHERE file_id = ?", (file_id,))
                         if cursor.fetchone()[0] == 0:
+                            # Получаем original_path перед удалением
+                            cursor.execute("SELECT original_path FROM tracked_files WHERE id = ?", (file_id,))
+                            path_result = cursor.fetchone()
+                            if path_result:
+                                files_completely_removed_info.append((file_id, path_result[0]))
+
                             cursor.execute("DELETE FROM tracked_files WHERE id = ?", (file_id,))
                             file_ids_completely_removed.append(file_id)
                             self.history_notification.emit(self.tr("Отслеживаемый файл (ID {0}) удален, так как не осталось версий после пакетного удаления.").format(file_id), QSystemTrayIcon.Information)
@@ -539,17 +555,8 @@ class HistoryManager(QObject):
                     self.update_storage_info()
 
                     # Оповещаем UI
-                    if file_ids_completely_removed:
-                        # Для файлов, которые были полностью удалены, нужно получить их пути.
-                        # Это нужно сделать до того, как они будут удалены из БД.
-                        files_completely_removed_info: List[Tuple[int, str]] = []
-                    if file_ids_completely_removed:
-                        placeholders = ','.join('?' for _ in file_ids_completely_removed)
-                        cursor.execute(f"SELECT id, original_path FROM tracked_files WHERE id IN ({placeholders})", file_ids_completely_removed)
-                        files_completely_removed_info = cursor.fetchall()
-
-                    if files_completely_removed_info: # <--- ДОБАВЛЕНО
-                        self.files_deleted.emit(files_completely_removed_info) # <--- ИЗМЕНЕНО
+                    if files_completely_removed_info:
+                        self.files_deleted.emit(files_completely_removed_info)
                     for file_id in affected_file_ids:
                         self.version_deleted.emit(file_id) # Оповещаем об изменении списка версий для этих файлов
 
@@ -570,7 +577,7 @@ class HistoryManager(QObject):
         """
         deleted_count = 0
         potential_orphan_hashes = set()
-        files_to_delete_info: List[Tuple[int, str]] = [] # <--- НОВОЕ: список для хранения (file_id, original_path)
+        files_to_delete_info: List[Tuple[int, str]] = [] # список для хранения (file_id, original_path)
 
         with self._db_connection_lock:
             cursor = self._db_connection.cursor()
@@ -600,7 +607,7 @@ class HistoryManager(QObject):
 
                 self._db_connection.commit()
                 self.history_notification.emit(self.tr("Удалено {0} отслеживаемых файлов и их версий.").format(deleted_count), QSystemTrayIcon.Information)
-                self.files_deleted.emit(files_to_delete_info) # <--- ИЗМЕНЕНО: Отправляем (file_id, original_path)
+                self.files_deleted.emit(files_to_delete_info) # Отправляем (file_id, original_path)
 
                 self.update_storage_info() # Обновляем информацию о хранилище
 
@@ -851,7 +858,7 @@ class HistoryManager(QObject):
                     self._db_connection.commit()
                     files_deleted_count = len(file_ids_to_delete)
                     messages.append((self.tr("Удалено {0} записей о файлах, которые больше не отслеживаются.").format(files_deleted_count), QSystemTrayIcon.Information))
-                    self.files_deleted.emit(files_to_delete_info) # <--- ИЗМЕНЕНО: Отправляем (file_id, original_path)
+                    self.files_deleted.emit(files_to_delete_info) # Отправляем (file_id, original_path)
 
                     # Удаляем объекты из хранилища, если они больше не используются
                     self._cleanup_orphan_objects(hashes_to_check)

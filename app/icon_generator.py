@@ -169,7 +169,7 @@ class IconGenerator:
             'saving': QColor(accent_color_hex),
             'paused': QColor('#808080'),  # Серый
             'error': QColor('#D32F2F'),   # Насыщенный красный
-            'inactive': QColor("#460194") # Темно-серый для неактивного состояния (не запущен, не пауза)
+            'inactive': QColor("#FFBB00") # Темно-серый для неактивного состояния (не запущен, не пауза)
         }
 
         for state, color in state_colors.items():
