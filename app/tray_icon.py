@@ -141,7 +141,7 @@ class TrayIcon(QSystemTrayIcon):
 
     @Slot(str, QSystemTrayIcon.MessageIcon)
     def _on_history_notification(self, msg: str, icon: QSystemTrayIcon.MessageIcon):
-        self.show_notification(self.tr("Undoit - История"), msg, icon)
+        self.show_notification(self.tr("Undoit - История"), msg, icon, topic="history_events")
 
     @Slot(str, QSystemTrayIcon.MessageIcon)
     def _on_startup_action_completed(self, message: str, icon_type: QSystemTrayIcon.MessageIcon):

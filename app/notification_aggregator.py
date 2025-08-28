@@ -88,7 +88,24 @@ class NotificationAggregator(QObject):
                     )
                 else:
                     final_message = self.tr("Просканировано {0} файлов: {1}").format(count, first_items)
-            else: # Общий случай для других тем, например, 'settings'
-                final_message = self.tr("Обновлено {0} элементов: {1}").format(count, ", ".join(messages))
+            
+            # --- НОВАЯ ЛОГИКА ---
+            elif topic == "history_events":
+                # Для событий истории, где сообщения могут быть разнообразными
+                # (сохранено, добавлено, удалено), показываем первое и количество остальных.
+                first_event = messages[0]
+                final_message = self.tr("{0} (и еще {1} событий в истории)").format(
+                    first_event, count - 1
+                )
+
+            else: # Общий, улучшенный случай для других тем (например, 'settings')
+                first_event = messages[0]
+                # Обрезаем первое сообщение, если оно слишком длинное
+                if len(first_event) > 60:
+                    first_event = first_event[:57] + "..."
+                
+                final_message = self.tr("{0} (и еще {1} уведомлений)").format(
+                    first_event, count - 1
+                )
 
         self.aggregated_notification_ready.emit(title, final_message, icon)
