@@ -411,8 +411,10 @@ class HistoryManager(QObject):
             self.history_notification.emit(error_message, QSystemTrayIcon.Critical)
             return
 
-        # version_added всегда испускается, если версия добавлена (новый или старый файл)
-        self.version_added.emit(file_id)
+        # Сигнал version_added для существующего файла (для нового он испускается в _add_version_from_path)
+        if not was_new_file:
+            self.version_added.emit(file_id)
+
         if was_new_file:
             # self.file_list_updated.emit() # Теперь испускается в _add_version_from_path
             self.history_notification.emit(self.tr("Добавлен новый файл для отслеживания: {0}").format(file_path.name), QSystemTrayIcon.Information)

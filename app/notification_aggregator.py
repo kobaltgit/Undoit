@@ -52,7 +52,7 @@ class NotificationAggregator(QObject):
             timer.setSingleShot(True)
             timer.setInterval(self.AGGREGATION_DELAY_MS)
             # Соединяем таймер со слотом, который "выбросит" сгруппированные сообщения
-            timer.timeout.connect(lambda: self._flush_topic(topic))
+            timer.timeout.connect(lambda topic=topic: self._flush_topic(topic))
             self._timers[topic] = timer
             timer.start()
         else:
