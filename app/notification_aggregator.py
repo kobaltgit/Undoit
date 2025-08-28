@@ -38,26 +38,27 @@ class NotificationAggregator(QObject):
             self.aggregated_notification_ready.emit(title, message, icon)
             return
 
+        # Если для этой темы уже есть активный таймер, останавливаем и удаляем его.
+        if topic in self._timers:
+            self._timers.pop(topic).deleteLater()
+
         # Добавляем сообщение в список для этой темы
         messages, _, __ = self._pending_notifications[topic]
         messages.append(message)
         
-        # Если это первое сообщение по теме, сохраняем заголовок и иконку
+        # Если это первое сообщение в текущем "пакете", сохраняем заголовок и иконку
         if len(messages) == 1:
-             self._pending_notifications[topic] = (messages, title, icon)
+            self._pending_notifications[topic] = (messages, title, icon)
 
-        if topic not in self._timers:
-            # Если таймера для этой темы еще нет, создаем и запускаем его
-            timer = QTimer(self)
-            timer.setSingleShot(True)
-            timer.setInterval(self.AGGREGATION_DELAY_MS)
-            # Соединяем таймер со слотом, который "выбросит" сгруппированные сообщения
-            timer.timeout.connect(lambda topic=topic: self._flush_topic(topic))
-            self._timers[topic] = timer
-            timer.start()
-        else:
-            # Если таймер уже есть, просто перезапускаем его, чтобы продлить окно сбора
-            self._timers[topic].start()
+        # Создаем НОВЫЙ таймер. Это самый надежный способ.
+        timer = QTimer(self)
+        timer.setSingleShot(True)
+        timer.setInterval(self.AGGREGATION_DELAY_MS)
+        # Использование topic=topic заставляет лямбду "захватить"
+        # текущее значение переменной topic в момент создания.
+        timer.timeout.connect(lambda topic=topic: self._flush_topic(topic))
+        self._timers[topic] = timer
+        timer.start()
 
     def _flush_topic(self, topic: str):
         """
