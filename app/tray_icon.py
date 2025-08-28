@@ -414,7 +414,7 @@ class TrayIcon(QSystemTrayIcon):
     def _show_about_dialog(self):
         """Показывает стандартный диалог 'О программе'."""
         # TODO: Заменить 'Undoit' на новое имя после рефакторинга
-        repo_url = "https://github.com/kobaltgit/Backdraft"
+        repo_url = "https://github.com/kobaltgit/Undoit"
         about_text = self.tr(
             "<h3>{app_name}</h3>"
             "<p>Программа для фонового отслеживания и версионирования файлов.</p>"

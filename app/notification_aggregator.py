@@ -43,6 +43,10 @@ class NotificationAggregator(QObject):
             self._timers.pop(topic).deleteLater()
 
         # Добавляем сообщение в список для этой темы
+        if topic in self._timers:
+            self._timers[topic].stop()
+
+        # Добавляем сообщение в список для этой темы
         messages, _, __ = self._pending_notifications[topic]
         messages.append(message)
         
@@ -53,12 +57,11 @@ class NotificationAggregator(QObject):
         # Создаем НОВЫЙ таймер. Это самый надежный способ.
         timer = QTimer(self)
         timer.setSingleShot(True)
-        timer.setInterval(self.AGGREGATION_DELAY_MS)
-        # Использование topic=topic заставляет лямбду "захватить"
+        # Использование t=topic заставляет лямбду "захватить"
         # текущее значение переменной topic в момент создания.
-        timer.timeout.connect(lambda topic=topic: self._flush_topic(topic))
-        self._timers[topic] = timer
-        timer.start()
+        timer.timeout.connect(lambda t=topic: self._flush_topic(t))
+        self._timers[topic] = timer # Заменяем старый таймер новым
+        timer.start(self.AGGREGATION_DELAY_MS)
 
     def _flush_topic(self, topic: str):
         """
