@@ -1,38 +1,73 @@
-/* Стили для светлой темы */
+/* Общие стили для светлой темы */
 
-/* Общие стили для всех виджетов */
-* {
-    color: #333333; /* Темно-серый текст */
-    background-color: #f0f0f0; /* Очень светло-серый фон (основной) */
-    font-family: "Segoe UI", "Roboto", sans-serif; /* Универсальный шрифт */
-    font-size: 10pt;
+/* Стиль для главного окна истории версий */
+#HistoryWindow {
+    background-color: #f0f0f0; /* Светлый фон окна */
 }
 
-/* Основные окна и диалоги */
-QMainWindow, QDialog {
-    background-color: #f0f0f0;
+/* Общие стили для меню */
+QMenu {
+    background-color: #ffffff; /* Белый фон для меню */
+    border: 1px solid #cccccc; /* Светло-серый бордюр */
+    padding: 5px; /* Отступы вокруг пунктов меню */
+    border-radius: 4px; /* Небольшой радиус углов для меню */
+}
+
+/* Стили для отдельных пунктов меню */
+QMenu::item {
+    padding: 5px 25px 5px 15px; /* Отступы для текста и иконки */
+    color: #333333; /* Темно-серый цвет текста */
+    background-color: transparent; /* Прозрачный фон по умолчанию */
     border: none;
+    cursor: pointingHand; /* Изменение курсора на палец */
+    border-radius: 3px; /* Небольшой радиус углов для пунктов */
 }
 
-/* Группы виджетов (QGroupBox) */
-QGroupBox {
-    border: 1px solid #cccccc; /* Светлая рамка */
+/* Стиль пункта меню при наведении (hover) или выборе */
+QMenu::item:selected {
+    background-color: #e0f2f7; /* Очень светло-голубой фон при наведении */
+    color: #000000; /* Черный текст при наведении для контраста */
+}
+
+/* Стиль для разделителей в меню */
+QMenu::separator {
+    height: 1px;
+    background-color: #cccccc; /* Светло-серый разделитель */
+    margin: 5px 0; /* Отступы сверху и снизу от разделителя */
+}
+
+/* Стиль для QListWidget */
+QListWidget {
+    background-color: #ffffff;
+    border: 1px solid #cccccc;
     border-radius: 4px;
-    margin-top: 10px; /* Отступ сверху для заголовка */
-    padding: 10px;
+    selection-background-color: #cce8ff; /* Стандартный синий для выбора */
+    selection-color: #000000; /* Черный текст на выбранном элементе */
+    alternate-background-color: #f7f7f7; /* Чередующийся фон для строк */
 }
 
-QGroupBox::title {
-    subcontrol-origin: margin;
-    subcontrol-position: top left; /* Размещение заголовка */
-    padding: 0 5px;
-    background-color: transparent;
-    color: #333333; /* Темный текст заголовка */
+QListWidget::item {
+    padding: 3px;
+    border-bottom: 1px solid #f0f0f0;
 }
 
-/* Кнопки (QPushButton) */
+QListWidget::item:selected {
+    background-color: #cce8ff;
+    color: #000000;
+}
+
+/* Стиль для QLineEdit (поля ввода) */
+QLineEdit {
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    padding: 5px;
+    background-color: #ffffff;
+    color: #333333;
+}
+
+/* Стиль для QPushButton */
 QPushButton {
-    background-color: #e0e0e0; /* Светло-серый фон кнопки */
+    background-color: #e0e0e0;
     border: 1px solid #cccccc;
     border-radius: 4px;
     padding: 5px 15px;
@@ -40,98 +75,101 @@ QPushButton {
 }
 
 QPushButton:hover {
-    background-color: #d0d0d0; /* Немного темнее при наведении */
+    background-color: #d0d0d0;
 }
 
 QPushButton:pressed {
-    background-color: #c0c0c0; /* Темнее при нажатии */
+    background-color: #c0c0c0;
 }
 
 QPushButton:disabled {
-    background-color: #e8e8e8;
-    color: #a0a0a0;
-    border-color: #e8e8e8;
+    background-color: #f0f0f0;
+    color: #999999;
+    border-color: #e0e0e0;
 }
 
-/* Списки (QListWidget), текстовые поля (QTextEdit), выпадающие списки (QComboBox), поля ввода (QLineEdit) */
-QListWidget, QTextEdit, QComboBox, QLineEdit {
-    background-color: #ffffff; /* Белый фон для элементов ввода/списков */
+/* Стиль для QGroupBox */
+QGroupBox {
     border: 1px solid #cccccc;
     border-radius: 4px;
-    padding: 3px;
-    selection-background-color: #0078D4; /* Акцентный синий для выделения */
-    selection-color: #ffffff; /* Белый текст на выделенном фоне */
+    margin-top: 10px;
+    padding-top: 15px;
+    background-color: #ffffff;
 }
 
-/* Элементы списка QListWidget */
-QListWidget::item:selected {
-    background-color: #0078D4;
-    color: #ffffff;
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    padding: 0 3px;
+    left: 10px;
+    margin-left: 2px;
+    color: #333333;
 }
 
-/* Выпадающие списки (QComboBox) - стрелка */
+/* Стиль для QLabel */
+QLabel {
+    color: #333333;
+}
+
+/* Стиль для QTextEdit (виджет предпросмотра текста) */
+QTextEdit#TextPreviewWidget { /* Используем ID объекта */
+    background-color: #f7f7f7;
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    padding: 5px;
+    color: #333333;
+}
+
+/* Стиль для QLabel#ImagePreviewWidget и QLabel#InfoPreviewWidget */
+QLabel#ImagePreviewWidget, QLabel#InfoPreviewWidget { /* Используем ID объекта */
+    background-color: #e9ecef; /* Нейтральный фон для предпросмотра */
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    color: #6c757d; /* Более светлый текст для информационных сообщений */
+}
+
+/* Стили для QComboBox */
+QComboBox {
+    border: 1px solid #cccccc;
+    border-radius: 4px;
+    padding: 1px 18px 1px 3px;
+    min-width: 6em;
+    background-color: #ffffff;
+    color: #333333;
+}
+
+QComboBox:hover {
+    border-color: #999999;
+}
+
+QComboBox:on { /* При открытом выпадающем списке */
+    padding-top: 3px;
+    padding-left: 4px;
+}
+
 QComboBox::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: top right;
     width: 20px;
     border-left-width: 1px;
     border-left-color: #cccccc;
-    border-left-style: solid;
+    border-left-style: solid; /* только левая граница */
     border-top-right-radius: 3px;
     border-bottom-right-radius: 3px;
 }
 
 QComboBox::down-arrow {
-    image: url(resources/icons/down_arrow_light.png); /* Предполагается, что такая иконка будет существовать */
+    image: url("resources/icons/arrow_down_black.png"); /* Путь к вашей иконке стрелки вниз */
     width: 12px;
     height: 12px;
 }
 
-/* Разделители (QSplitter::handle) */
-/* QSplitter::handle {
-    background-color: #cccccc;
-    margin: 5px;
-    border-radius: 2px;
-} */
-
-QSplitter::handle:hover {
-    background-color: #0078D4; /* Акцентный цвет при наведении */
+QComboBox::down-arrow:on {
+    image: url("resources/icons/arrow_up_black.png"); /* Путь к вашей иконке стрелки вверх */
 }
 
-/* Стиль для ScrollArea (если используются), чтобы соответствовал теме */
-QScrollArea {
-    background-color: #f0f0f0;
-    border: none;
-}
-
-QScrollBar:vertical, QScrollBar:horizontal {
-    border: 1px solid #cccccc;
-    background: #e0e0e0;
-    width: 10px; /* для вертикального скроллбара */
-    height: 10px; /* для горизонтального скроллбара */
-    margin: 0px 0px 0px 0px;
-    border-radius: 5px;
-}
-
-QScrollBar::handle:vertical, QScrollBar::handle:horizontal {
-    background: #a0a0a0;
-    min-height: 20px;
-    border-radius: 5px;
-}
-
-QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover {
-    background: #808080;
-}
-
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-    border: none;
-    background: none;
-}
-
-QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical,
-QScrollBar::left-arrow:horizontal, QScrollBar::right-arrow:horizontal {
-    width: 0px;
-    height: 0px;
-    background: none;
+/* Стиль для QStackedWidget (контейнер предпросмотра) */
+QStackedWidget#PreviewStackedWidget {
+    border: none; /* Убираем бордер, так как его рисуют внутренние виджеты */
+    background-color: transparent;
 }

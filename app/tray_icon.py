@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # Логика иконки в системном трее
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 from PySide6.QtCore import Slot, QTimer
 from PySide6.QtGui import QAction, QIcon
@@ -59,7 +59,7 @@ class TrayIcon(QSystemTrayIcon):
         # 2. Устанавливаем иконку и меню
         # Изначально устанавливаем иконку на основе последнего состояния хранилища (0% заполнения)
         self.setIcon(self.icon_generator.get_dynamic_icon(self._last_icon_fill_percentage))
-        self.setToolTip(self.tr("Backdraft: Инициализация..."))
+        self.setToolTip(self.tr("Undoit: Инициализация..."))
         self.menu = QMenu()
         self._create_actions()
         self.setContextMenu(self.menu)
@@ -120,32 +120,32 @@ class TrayIcon(QSystemTrayIcon):
 
     @Slot(str, QSystemTrayIcon.MessageIcon)
     def on_config_notification(self, msg: str, icon: QSystemTrayIcon.MessageIcon):
-        self.show_notification(self.tr("Backdraft - Настройки"), msg, icon, topic="settings")
+        self.show_notification(self.tr("Undoit - Настройки"), msg, icon, topic="settings")
 
     @Slot(str, QSystemTrayIcon.MessageIcon)
     def on_locale_notification(self, msg: str, icon: QSystemTrayIcon.MessageIcon):
-        self.show_notification(self.tr("Backdraft - Локализация"), msg, icon, topic="settings")
+        self.show_notification(self.tr("Undoit - Локализация"), msg, icon, topic="settings")
 
     @Slot(str, QSystemTrayIcon.MessageIcon)
     def on_theme_notification(self, msg: str, icon: QSystemTrayIcon.MessageIcon):
-        self.show_notification(self.tr("Backdraft - Тема"), msg, icon, topic="settings")
+        self.show_notification(self.tr("Undoit - Тема"), msg, icon, topic="settings")
 
     @Slot(str)
     def _on_scan_progress(self, file_name: str):
-        self.show_notification(self.tr("Backdraft - Сканирование"), file_name, QSystemTrayIcon.Information, topic="scan_progress")
+        self.show_notification(self.tr("Undoit - Сканирование"), file_name, QSystemTrayIcon.Information, topic="scan_progress")
 
     @Slot(str, QSystemTrayIcon.MessageIcon)
     def _on_watcher_notification(self, msg: str, icon: QSystemTrayIcon.MessageIcon):
-        self.show_notification(self.tr("Backdraft - Отслеживание"), msg, icon)
+        self.show_notification(self.tr("Undoit - Отслеживание"), msg, icon)
         self._update_monitoring_ui_state()
 
     @Slot(str, QSystemTrayIcon.MessageIcon)
     def _on_history_notification(self, msg: str, icon: QSystemTrayIcon.MessageIcon):
-        self.show_notification(self.tr("Backdraft - История"), msg, icon)
+        self.show_notification(self.tr("Undoit - История"), msg, icon)
 
     @Slot(str, QSystemTrayIcon.MessageIcon)
     def _on_startup_action_completed(self, message: str, icon_type: QSystemTrayIcon.MessageIcon):
-        self.show_notification(self.tr("Backdraft - Автозапуск"), message, icon_type, topic="settings")
+        self.show_notification(self.tr("Undoit - Автозапуск"), message, icon_type, topic="settings")
 
     @Slot(float, str, str, float)
     def _on_storage_info_updated(self, icon_fill_percentage: float, undoit_storage_size: str, free_disk_space: str, tooltip_percentage: float):
@@ -166,7 +166,7 @@ class TrayIcon(QSystemTrayIcon):
             self.history_manager.start_scan(self._current_watched_items)
         else:
             self.show_notification(
-                self.tr("Backdraft - Отслеживание"),
+                self.tr("Undoit - Отслеживание"),
                 self.tr("Нет настроенных элементов для отслеживания. Добавьте их в настройках."),
                 QSystemTrayIcon.Information
             )
@@ -175,6 +175,7 @@ class TrayIcon(QSystemTrayIcon):
     def _create_actions(self):
         self.history_action = QAction(self.tr("Открыть историю версий"), self)
         self.history_action.triggered.connect(self._open_history_window)
+        self.history_manager.files_deleted.connect(self._on_history_files_deleted)
         self.menu.addAction(self.history_action)
 
         self.settings_action = QAction(self.tr("Настройки"), self)
@@ -206,17 +207,51 @@ class TrayIcon(QSystemTrayIcon):
 
     def _open_history_window(self):
         if self.history_window is None:
-            self.history_window = HistoryWindow(history_manager=self.history_manager, app_icon=self.app_icon)
+            self.history_window = HistoryWindow(
+                history_manager=self.history_manager,
+                config_manager=self.config_manager, # Добавлен config_manager
+                app_icon=self.app_icon
+            )
+            # При инициализации окна, оно уже вызывает refresh_file_list().
+            # Если _all_tracked_files_data (Dict) пуст, то ничего не будет выбрано,
+            # но UI будет в корректном состоянии.
+            # Теперь refresh_file_list_after_deletion обрабатывает удаление,
+            # а refresh_version_list_if_selected обновляет версии для выбранного файла.
+            # Если файл удален, files_deleted сигнал вызовет refresh_file_list_after_deletion,
+            # которая сама обновит _all_tracked_files_data и UI.
+            # Если версия добавлена, version_added сигнал вызовет refresh_version_list_if_selected.
             self.history_manager.version_added.connect(self.history_window.refresh_version_list_if_selected)
+            # file_list_updated сигнал больше не нужен, так как refresh_file_list вызывается при инициализации
+            # и после удаления файлов через files_deleted.
             self.history_manager.file_list_updated.connect(self.history_window.refresh_file_list)
         self.history_window.show()
         self.history_window.activateWindow()
         self.history_window.raise_()
 
+    # def _open_history_window(self):
+    #     if self.history_window is None:
+    #         self.history_window = HistoryWindow(history_manager=self.history_manager, app_icon=self.app_icon)
+    #         self.history_manager.version_added.connect(self.history_window.refresh_version_list_if_selected)
+    #         self.history_manager.file_list_updated.connect(self.history_window.refresh_file_list)
+    #     self.history_window.show()
+    #     self.history_window.activateWindow()
+    #     self.history_window.raise_()
+
     def _open_settings_window(self):
         if self.settings_window is None:
             self.settings_window = SettingsWindow(config_manager=self.config_manager, app_icon=self.app_icon)
+
+            # --- НОВЫЕ СОЕДИНЕНИЯ СИГНАЛОВ ---
+            # Когда список отслеживаемых элементов меняется (например, удален файл из истории),
+            # обновляем список в окне настроек.
+            self.config_manager.watched_items_changed.connect(self.settings_window._load_settings) # <--- ДОБАВЛЕНО
+
+            # Отсоединяем сигнал, когда окно настроек закрывается, чтобы избежать утечек памяти
+            self.settings_window.finished.connect(lambda: self.config_manager.watched_items_changed.disconnect(self.settings_window._load_settings)) # <--- ДОБАВЛЕНО
+
+            # Старое соединение для очистки ссылки на окно
             self.settings_window.finished.connect(lambda: setattr(self, 'settings_window', None))
+
         if not self.settings_window.isVisible():
             self.settings_window.exec()
         else:
@@ -359,6 +394,10 @@ class TrayIcon(QSystemTrayIcon):
         # 4. Пытаемся запустить/обновить мониторинг в любом случае
         self._attempt_start_monitoring()
 
+        # 5. Если окно истории открыто, обновляем список файлов
+        if self.history_window and self.history_window.isVisible():
+            self.history_window.refresh_file_list()
+
     def _open_help_window(self):
         """Создает (если нужно) и показывает окно помощи."""
         if self.help_window is None:
@@ -374,7 +413,7 @@ class TrayIcon(QSystemTrayIcon):
 
     def _show_about_dialog(self):
         """Показывает стандартный диалог 'О программе'."""
-        # TODO: Заменить 'Backdraft' на новое имя после рефакторинга
+        # TODO: Заменить 'Undoit' на новое имя после рефакторинга
         repo_url = "https://github.com/kobaltgit/Backdraft"
         about_text = self.tr(
             "<h3>{app_name}</h3>"
@@ -390,6 +429,38 @@ class TrayIcon(QSystemTrayIcon):
     def _apply_initial_startup_setting(self):
         enable_startup = self.config_manager.get("launch_on_startup", False)
         self.startup_manager.update_startup_setting(enable_startup)
+
+    @Slot(list)
+    def _on_history_files_deleted(self, deleted_files_info: List[Tuple[int, str]]): # <--- ИЗМЕНЕНО: теперь принимает список кортежей (file_id, original_path_str)
+        """
+        Слот, вызываемый при удалении файлов из истории.
+        Обновляет список отслеживаемых элементов в ConfigManager.
+        """
+        if not deleted_files_info:
+            return
+
+        current_watched_items = self.config_manager.get_watched_items()
+
+        # Собираем set из POSIX-путей удаленных файлов
+        deleted_paths_posix = {Path(original_path_str).as_posix() for _, original_path_str in deleted_files_info} # <--- НОВОЕ
+
+        new_watched_items = []
+        changed = False
+        for item in current_watched_items:
+            # Пути в config_manager уже хранятся в POSIX-формате благодаря _normalize_items_for_storage
+            if item["path"] in deleted_paths_posix: # <--- ИЗМЕНЕНО: сравнение с новым set'ом
+                changed = True
+                self.show_notification(
+                    self.tr("Undoit - Настройки"),
+                    self.tr("Файл '{0}' был удален из истории и из списка отслеживания.").format(Path(item["path"]).name),
+                    QSystemTrayIcon.Information,
+                    topic="settings"
+                )
+            else:
+                new_watched_items.append(item)
+
+        if changed:
+            self.config_manager.set_watched_items(new_watched_items) # Это вызовет _on_watched_items_changed, который обновит HistoryWindow
 
     def _on_quit(self):
         self.show_notification(self.app_name, self.tr("Приложение закрывается. Останавливаю сервисы..."), QSystemTrayIcon.Information)
