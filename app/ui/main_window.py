@@ -18,6 +18,10 @@ from PySide6.QtGui import QIcon, QPixmap, QResizeEvent, QAction
 
 from app.history_manager import HistoryManager
 from app.config_manager import ConfigManager # Добавлен импорт ConfigManager
+# Константы для предпросмотра изображений
+MAX_PREVIEW_IMAGE_WIDTH = 800  # Максимальная ширина изображения в предпросмотре
+MAX_PREVIEW_IMAGE_HEIGHT = 600 # Максимальная высота изображения в предпросмотре
+
 
 
 class HistoryWindow(QMainWindow):
@@ -139,10 +143,13 @@ class HistoryWindow(QMainWindow):
 
         self.image_preview_widget = QLabel()
         self.image_preview_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.image_preview_widget.setScaledContents(False) # <--- ВЕРНУЛИ НА FALSE: теперь мы масштабируем вручную
         self.image_preview_widget.setObjectName("ImagePreviewWidget") # Для стилей
         self.image_preview_widget.setSizePolicy(
-            QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding # <--- ДОБАВЛЕНО
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed # <--- НОВАЯ ПОЛИТИКА: QLabel будет подстраиваться под Pixmap, а не расширяться
         )
+        # Убрали setMinimumSize(1,1), так как QLabel будет подстраиваться под размер установленного Pixmap.
+
 
         self.info_preview_widget = QLabel() # Для PDF, неподдерживаемых файлов или ошибок
         self.info_preview_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -153,7 +160,19 @@ class HistoryWindow(QMainWindow):
         )
 
         self.preview_stacked_widget.addWidget(self.text_preview_widget) # Индекс 0
-        self.preview_stacked_widget.addWidget(self.image_preview_widget) # Индекс 1
+
+        # --- Центрирующий контейнер для виджета предпросмотра изображения ---
+        image_centering_widget = QWidget() # <--- НОВЫЙ КОНТЕЙНЕР
+        image_centering_layout = QVBoxLayout(image_centering_widget) # <--- НОВЫЙ МАКЕТ
+        image_centering_layout.setContentsMargins(0, 0, 0, 0) # Убираем лишние отступы внутри контейнера
+
+        image_centering_layout.addStretch(1) # Растяжка сверху для вертикального центрирования
+        # Добавляем QLabel. AlignCenter здесь центрирует его по горизонтали внутри макета.
+        # Поскольку QLabel имеет фиксированный размер, он не будет растягиваться.
+        image_centering_layout.addWidget(self.image_preview_widget, 0, Qt.AlignmentFlag.AlignCenter) 
+        image_centering_layout.addStretch(1) # Растяжка снизу для вертикального центрирования
+
+        self.preview_stacked_widget.addWidget(image_centering_widget) # <--- ДОБАВЛЯЕМ КОНТЕЙНЕР В STACKED WIDGET
         self.preview_stacked_widget.addWidget(self.info_preview_widget) # Индекс 2
 
         # Создаем контейнер для кнопок
@@ -597,20 +616,28 @@ class HistoryWindow(QMainWindow):
         self.preview_stacked_widget.setCurrentIndex(0) # Показываем текстовый предпросмотр по умолчанию (пустой)
 
     def _display_current_image(self):
-        """Отображает текущее изображение в image_preview_widget, масштабируя его пропорционально."""
+        """
+        Отображает текущее изображение в image_preview_widget,
+        масштабируя его пропорционально до заданных максимальных размеров.
+        """
         if self._current_original_pixmap and not self._current_original_pixmap.isNull():
-            # Получаем доступный размер для отображения изображения
-            available_size = self.image_preview_widget.size()
+            # Определяем максимальный размер для масштабирования
+            max_display_size = QSize(MAX_PREVIEW_IMAGE_WIDTH, MAX_PREVIEW_IMAGE_HEIGHT) # <--- ИСПОЛЬЗУЕМ КОНСТАНТЫ
 
-            # Масштабируем QPixmap с сохранением пропорций
+            # Масштабируем QPixmap с сохранением пропорций, не превышая max_display_size.
+            # Если оригинальный размер меньше max_display_size, scaled() не увеличит его.
             scaled_pixmap = self._current_original_pixmap.scaled(
-                available_size,
+                max_display_size,
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation # Для лучшего качества при масштабировании
             )
             self.image_preview_widget.setPixmap(scaled_pixmap)
+            # После установки pixmap, обновляем фиксированный размер QLabel, чтобы он точно соответствовал
+            # масштабированному изображению. Это предотвращает растягивание родительского макета.
+            self.image_preview_widget.setFixedSize(scaled_pixmap.size()) # <--- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ
         else:
             self.image_preview_widget.clear() # Если нет изображения, очищаем QLabel
+            self.image_preview_widget.setFixedSize(0, 0) # <--- Сброс размера, если нет изображения
 
     def _show_preview_message(self, message: str):
         """Отображает информационное или ошибочное сообщение в панели предпросмотра."""
@@ -620,13 +647,12 @@ class HistoryWindow(QMainWindow):
         self.info_preview_widget.setText(self.tr("<i>{0}</i>").format(message))
         self.preview_stacked_widget.setCurrentIndex(2) # Индекс для info_preview_widget
 
-    def resizeEvent(self, event: QResizeEvent):
-        """Обрабатывает изменение размера окна."""
-        super().resizeEvent(event)
-        # Если текущий виджет в стеке - это виджет изображения и есть что отображать,
-        # то перемасштабируем изображение.
-        if self.preview_stacked_widget.currentIndex() == 1 and self._current_original_pixmap:
-            self._display_current_image()
+    # def resizeEvent(self, event: QResizeEvent):
+    #     """Обрабатывает изменение размера окна."""
+    #     super().resizeEvent(event)
+        # При использовании setScaledContents(True) QLabel сам обрабатывает масштабирование
+        # при изменении размера. Больше не требуется вызывать _display_current_image() здесь.
+        # Это предотвращает рекурсивные вызовы.
 
     def _on_save_as(self):
         """Слот для кнопки 'Сохранить как...'."""
