@@ -51,15 +51,25 @@ def main():
 
     config = ConfigManager()
     storage_path = config.get_storage_path()
-    watched_items = config.get_watched_items()
-    initial_config_empty = not watched_items
+    
+    # --- Новая логика для первого запуска ---
+    is_first_launch = config.get("is_first_launch", False)
+    show_welcome_message = False
 
-    if initial_config_empty:
+    if is_first_launch:
         desktop_path = str(Path.home() / "Desktop")
         if Path(desktop_path).exists():
             desktop_item = {"path": desktop_path, "type": "folder", "exclusions": []}
-            watched_items.append(desktop_item)
-            config.set_watched_items(watched_items)
+            # Используем set_watched_items, чтобы сразу записать в конфиг
+            config.set_watched_items([desktop_item])
+            show_welcome_message = True
+        
+        # Вне зависимости от того, был ли добавлен Рабочий стол,
+        # устанавливаем флаг, что первый запуск прошел.
+        config.set("is_first_launch", False)
+
+    # Получаем watched_items уже после потенциального добавления
+    watched_items = config.get_watched_items()
 
     locale_manager = LocaleManager(config_manager=config, app=app)
     theme_manager = ThemeManager(config_manager=config, app=app)
@@ -90,7 +100,7 @@ def main():
     locale_manager.locale_notification.connect(tray_icon.on_locale_notification)
     theme_manager.theme_notification.connect(tray_icon.on_theme_notification)
 
-    if initial_config_empty and watched_items:
+    if show_welcome_message:
         QMessageBox.information(
             None,
             APP_NAME,

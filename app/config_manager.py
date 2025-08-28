@@ -36,6 +36,7 @@ class ConfigManager(QObject):
             "theme": "auto",
             "language": "auto",
             "launch_on_startup": False,
+            "is_first_launch": True, # Флаг для первого запуска
         }
 
         self._settings = self._default_settings.copy()
@@ -57,6 +58,11 @@ class ConfigManager(QObject):
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 loaded_settings = json.load(f)
                 self._settings.update(loaded_settings)
+                                
+                # Проверяем, есть ли флаг первого запуска. 
+                # Если его нет, это старый конфиг, и мы считаем, что первый запуск уже был.
+                if "is_first_launch" not in self._settings:
+                    self._settings["is_first_launch"] = False
                 
                 # --- Механизм миграции со старого формата ---
                 if "watched_paths" in self._settings:
