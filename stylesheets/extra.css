@@ -100,7 +100,7 @@ hr {
 }
 
 [data-md-color-scheme=slate] {
-  --md-default-bg-color: hsl(225deg 15% 14% / 0%);
+  --md-default-bg-color: #0d0d0d;
 }
 
 .md-header__option {
@@ -126,7 +126,7 @@ li.md-tabs__item:hover {
     color: var(--md-primary-fg-color);
     cursor: pointer;
     display: inline-block;
-    margin-left: 50%;
+    margin-left: 35%;
     font-weight: 700;
     padding: .625em 2em;
     transition: color 125ms, background-color 125ms, border-color 125ms;
