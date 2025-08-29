@@ -1,0 +1,133 @@
+/* ========= Базовые переменные ========= */
+:root {
+  --md-primary-fg-color: #111;          /* общий фон */
+  --md-primary-bg-color: #ffffff;       /* текст */
+  --md-accent-fg-color: #ff6600;        /* акцент (оранжевый) */
+  --md-typeset-a-color: var(--md-accent-fg-color);
+}
+[data-md-color-accent=indigo]
+ {
+    --md-accent-fg-color: #ff6600;
+    --md-primary-fg-color: #111;
+    --md-accent-fg-color--transparent: #526cfe1a;
+    --md-accent-bg-color: #fff;
+    --md-accent-bg-color--light: #ffffffb3;
+}
+
+/* ========= Фон и текст ========= */
+body {
+  background-color: #0d0d0d;
+  color: #f5f5f5;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  line-height: 1.7;
+}
+
+/* ========= Заголовки ========= */
+h1, h2, h3, h4 {
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: #fff;
+}
+h1 strong, h2 strong {
+  color: var(--md-accent-fg-color);
+}
+
+/* ========= Навигация ========= */
+.md-header {
+  background: linear-gradient(90deg, #111 0%, #1b1b1b 100%);
+  color: #fff;
+}
+.md-nav__link {
+  border-radius: 6px;
+  padding: 6px 10px;
+  transition: background 0.2s ease;
+}
+.md-nav__link:hover {
+  background: rgba(255, 102, 0, 0.15);
+  color: var(--md-accent-fg-color);
+}
+
+/* ========= Кнопки ========= */
+.md-button {
+  border-radius: 8px;
+  padding: 8px 18px;
+  background: var(--md-accent-fg-color);
+  color: #fff !important;
+  font-weight: 600;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.md-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(255, 102, 0, 0.35);
+}
+
+/* ========= Списки с иконками ========= */
+.md-typeset ul li::marker {
+  content: "✔ ";
+  color: var(--md-accent-fg-color);
+  font-weight: bold;
+}
+
+/* ========= Блоки (admonition) ========= */
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: 14px;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 102, 0, 0.3);
+  padding: 1em;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+}
+
+/* ========= Декоративные разделители ========= */
+hr {
+  border: none;
+  border-top: 2px dashed rgba(255,255,255,0.2);
+  margin: 3em 0;
+}
+
+/* Волнистая линия (можно вставлять <div class="divider"></div>) */
+.divider {
+  height: 30px;
+  background: url("data:image/svg+xml;utf8,<svg width='100%' height='30' xmlns='http://www.w3.org/2000/svg'><path d='M0 20 Q 20 10, 40 20 T 80 20 T 120 20 T 160 20 T 200 20 T 240 20 T 280 20 T 320 20 T 360 20 T 400 20' stroke='white' fill='transparent' stroke-width='2'/></svg>") repeat-x;
+  background-size: 80px 30px;
+}
+
+/* ========= Футер ========= */
+.md-footer {
+  background: #111;
+  color: #bbb;
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+
+[data-md-color-scheme=slate] {
+  --md-default-bg-color: #0d0d0d;
+}
+
+.md-header__option {
+    display: none !important;
+}
+
+.md-tabs {
+    background: linear-gradient(90deg, #111 0%, #1b1b1b 100%);
+}
+
+.md-nav__item .md-nav__link--active, .md-nav__item .md-nav__link--active code {
+    color: var(--md-accent-fg-color) !important;
+}
+
+li.md-tabs__item:hover {
+  background-color: var(--md-accent-fg-color);
+  color: var(--md-primary-fg-color);
+}
+
+.md-typeset .md-button {  
+    border: none;
+    border-radius: 1.1rem;
+    color: var(--md-primary-fg-color);
+    cursor: pointer;
+    display: inline-block;
+    margin-left: 35%;
+    font-weight: 700;
+    padding: .625em 2em;
+    transition: color 125ms, background-color 125ms, border-color 125ms;
+}

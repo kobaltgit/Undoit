@@ -16,6 +16,7 @@ venv/
 /dist/
 /build/
 /output/
+/site/
 *.spec
 
 # Файлы Qt

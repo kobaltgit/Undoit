@@ -1,0 +1,55 @@
+# Информация о проекте
+site_name: Undoit
+site_url: https://kobaltgit.github.io/Undoit/
+repo_url: https://github.com/kobaltgit/Undoit
+repo_name: kobaltgit/Undoit
+
+
+# Тема оформления
+theme:
+  name: material
+  language: ru
+  custom_dir: overrides
+  logo: assets/img/logo.svg
+  favicon: assets/img/favicon.ico
+  palette:
+    # Светлая тема
+    - scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Переключить на темную тему
+    # Темная тема
+    - scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Переключить на светлую тему
+  features:
+    - navigation.tabs
+    - navigation.top
+    - search.suggest
+    - search.highlight
+
+# Навигация по сайту
+nav:
+  - 'Главная': 'index.md'
+  - 'Документация': 'documentation.md'
+  - 'FAQ': 'faq.md'
+
+# Подключение плагинов
+plugins:
+  - glightbox
+
+extra_css:
+  - stylesheets/extra.css
+  - https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css
+
+# Расширения для Markdown
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+extra_javascript:
+  - https://kit.fontawesome.com/your-kit-id.js
