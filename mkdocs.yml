@@ -1,6 +1,7 @@
 # Информация о проекте
 site_name: Undoit
 site_url: https://kobaltgit.github.io/Undoit/
+use_directory_urls: false
 repo_url: https://github.com/kobaltgit/Undoit
 repo_name: kobaltgit/Undoit
 
@@ -40,7 +41,7 @@ plugins:
   - glightbox
 
 extra_css:
-  - stylesheets/extra.css
+  # - stylesheets/extra.css
   - https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css
 
 # Расширения для Markdown
