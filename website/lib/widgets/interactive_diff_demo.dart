@@ -187,132 +187,141 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
                             final height = constraints.maxHeight;
                             final splitX = width * _splitRatio;
 
-                            return Stack(
-                              children: [
-                                // Layer 1: "Current" or "New" Version (Underneath)
-                                Positioned.fill(
-                                  child: _buildRightSideContent(),
-                                ),
-
-                                // Layer 2: "Old" Version (Clipped to left of split)
-                                Positioned(
-                                  top: 0,
-                                  left: 0,
-                                  bottom: 0,
-                                  width: splitX,
-                                  child: ClipRect(
-                                    child: OverflowBox(
-                                      alignment: Alignment.topLeft,
-                                      maxWidth: width,
-                                      maxHeight: height,
-                                      minWidth: width,
-                                      minHeight: height,
-                                      child: _buildLeftSideContent(),
+                            return MouseRegion(
+                              cursor: SystemMouseCursors.resizeColumn,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTapDown: (details) {
+                                  setState(() {
+                                    _splitRatio = (details.localPosition.dx / width).clamp(0.01, 0.99);
+                                  });
+                                },
+                                onHorizontalDragUpdate: (details) {
+                                  setState(() {
+                                    // 2.8x speed multiplier: allows moving from 0% to 100% with a short mouse swipe!
+                                    final deltaRatio = (details.delta.dx * 2.8) / width;
+                                    _splitRatio = (_splitRatio + deltaRatio).clamp(0.01, 0.99);
+                                  });
+                                },
+                                child: Stack(
+                                  children: [
+                                    // Layer 1: "Current" or "New" Version (Underneath)
+                                    Positioned.fill(
+                                      child: _buildRightSideContent(),
                                     ),
-                                  ),
-                                ),
 
-                                // Vertical Divider Line & Draggable Handle
-                                Positioned(
-                                  top: 0,
-                                  bottom: 0,
-                                  left: splitX - 16,
-                                  width: 32,
-                                  child: GestureDetector(
-                                    behavior: HitTestBehavior.translucent,
-                                    onHorizontalDragUpdate: (details) {
-                                      setState(() {
-                                        _splitRatio = ((splitX + details.delta.dx) / width)
-                                            .clamp(0.05, 0.95);
-                                      });
-                                    },
-                                    child: Center(
-                                      child: Stack(
-                                        alignment: Alignment.center,
-                                        children: [
-                                          // Vertical Line
-                                          Container(
-                                            width: 3,
-                                            height: double.infinity,
-                                            decoration: BoxDecoration(
-                                              color: AppColors.primary,
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: AppColors.primary.withValues(alpha: 0.8),
-                                                  blurRadius: 8,
-                                                ),
-                                              ],
+                                    // Layer 2: "Old" Version (Clipped to left of split)
+                                    Positioned(
+                                      top: 0,
+                                      left: 0,
+                                      bottom: 0,
+                                      width: splitX,
+                                      child: ClipRect(
+                                        child: OverflowBox(
+                                          alignment: Alignment.topLeft,
+                                          maxWidth: width,
+                                          maxHeight: height,
+                                          minWidth: width,
+                                          minHeight: height,
+                                          child: _buildLeftSideContent(),
+                                        ),
+                                      ),
+                                    ),
+
+                                    // Vertical Divider Line & Draggable Handle
+                                    Positioned(
+                                      top: 0,
+                                      bottom: 0,
+                                      left: splitX - 16,
+                                      width: 32,
+                                      child: Center(
+                                        child: Stack(
+                                          alignment: Alignment.center,
+                                          children: [
+                                            // Vertical Line
+                                            Container(
+                                              width: 3,
+                                              height: double.infinity,
+                                              decoration: BoxDecoration(
+                                                color: AppColors.primary,
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: AppColors.primary.withValues(alpha: 0.8),
+                                                    blurRadius: 8,
+                                                  ),
+                                                ],
+                                              ),
                                             ),
+                                            // Handle Knob
+                                            Container(
+                                              width: 32,
+                                              height: 32,
+                                              decoration: BoxDecoration(
+                                                color: AppColors.primary,
+                                                shape: BoxShape.circle,
+                                                border: Border.all(color: Colors.white, width: 2),
+                                                boxShadow: const [
+                                                  BoxShadow(
+                                                    color: Colors.black45,
+                                                    blurRadius: 6,
+                                                  ),
+                                                ],
+                                              ),
+                                              child: const Icon(
+                                                Icons.unfold_more_rounded,
+                                                color: Color(0xFF07090E),
+                                                size: 18,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+
+                                    // Floating Labels: "Старая версия" and "Новая версия"
+                                    Positioned(
+                                      top: 12,
+                                      left: 12,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(alpha: 0.7),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: AppColors.surfaceBorder),
+                                        ),
+                                        child: const Text(
+                                          '◄ Версия #1 (Вчера 17:40)',
+                                          style: TextStyle(
+                                            color: AppColors.textSecondary,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
                                           ),
-                                          // Handle Knob
-                                          Container(
-                                            width: 32,
-                                            height: 32,
-                                            decoration: BoxDecoration(
-                                              color: AppColors.primary,
-                                              shape: BoxShape.circle,
-                                              border: Border.all(color: Colors.white, width: 2),
-                                              boxShadow: const [
-                                                BoxShadow(
-                                                  color: Colors.black45,
-                                                  blurRadius: 6,
-                                                ),
-                                              ],
-                                            ),
-                                            child: const Icon(
-                                              Icons.unfold_more_rounded,
-                                              color: Color(0xFF07090E),
-                                              size: 18,
-                                            ),
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: 12,
+                                      right: 12,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primary.withValues(alpha: 0.2),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.5)),
+                                        ),
+                                        child: const Text(
+                                          'Версия #2 (Сегодня 11:20) ►',
+                                          style: TextStyle(
+                                            color: AppColors.primary,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600,
                                           ),
-                                        ],
+                                        ),
                                       ),
                                     ),
-                                  ),
+                                  ],
                                 ),
-
-                                // Floating Labels: "Старая версия" and "Новая версия"
-                                Positioned(
-                                  top: 12,
-                                  left: 12,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.black.withValues(alpha: 0.7),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: AppColors.surfaceBorder),
-                                    ),
-                                    child: const Text(
-                                      '◄ Версия #1 (Вчера 17:40)',
-                                      style: TextStyle(
-                                        color: AppColors.textSecondary,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                Positioned(
-                                  top: 12,
-                                  right: 12,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary.withValues(alpha: 0.2),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.5)),
-                                    ),
-                                    child: const Text(
-                                      'Версия #2 (Сегодня 11:20) ►',
-                                      style: TextStyle(
-                                        color: AppColors.primary,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
+                              ),
                             );
                           },
                         ),
@@ -320,6 +329,53 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
                     ],
                   ),
                 ),
+              ),
+              const SizedBox(height: 16),
+
+              // Precision Slider & Direct Jump Controls
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => setState(() => _splitRatio = 0.02),
+                    icon: const Icon(Icons.arrow_back_rounded, size: 14),
+                    label: const Text('Было (0%)'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.textSecondary,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    width: isDesktop ? 300 : 160,
+                    child: SliderTheme(
+                      data: SliderTheme.of(context).copyWith(
+                        trackHeight: 4,
+                        thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                        activeTrackColor: AppColors.primary,
+                        inactiveTrackColor: AppColors.surfaceBorder,
+                        thumbColor: AppColors.primary,
+                        overlayColor: AppColors.primary.withValues(alpha: 0.2),
+                      ),
+                      child: Slider(
+                        value: _splitRatio,
+                        min: 0.01,
+                        max: 0.99,
+                        onChanged: (val) => setState(() => _splitRatio = val),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: () => setState(() => _splitRatio = 0.98),
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 14),
+                    label: const Text('Стало (100%)'),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
