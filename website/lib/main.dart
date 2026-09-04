@@ -25,12 +25,13 @@ class UndoitWebsiteApp extends StatelessWidget {
       valueListenable: currentLang,
       builder: (context, lang, _) {
         return MaterialApp(
+          key: ValueKey('app_$lang'),
           title: lang == AppLang.ru
               ? 'Undoit — Локальная машина времени для ваших файлов'
               : 'Undoit — Local Time Machine for Your Files',
           debugShowCheckedModeBanner: false,
           theme: buildAppTheme(),
-          home: const LandingPage(),
+          home: LandingPage(key: ValueKey('landing_$lang')),
         );
       },
     );
@@ -113,26 +114,26 @@ class _LandingPageState extends State<LandingPage> {
                       ),
                       Container(
                         key: _diffDemoKey,
-                        child: const InteractiveDiffDemo(),
+                        child: InteractiveDiffDemo(),
                       ),
                       Container(
                         key: _featuresKey,
-                        child: const FeaturesGrid(),
+                        child: FeaturesGrid(),
                       ),
                       Container(
                         key: _comparisonKey,
-                        child: const ComparisonTable(),
+                        child: ComparisonTable(),
                       ),
-                      const SupportedFormats(),
+                      SupportedFormats(),
                       Container(
                         key: _faqKey,
-                        child: const FaqSection(),
+                        child: FaqSection(),
                       ),
                       Container(
                         key: _downloadKey,
-                        child: const DownloadCta(),
+                        child: DownloadCta(),
                       ),
-                      const AppFooter(),
+                      AppFooter(),
                     ],
                   ),
                 ),
