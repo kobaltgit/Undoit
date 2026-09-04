@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%sveltekit.assets%/favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Undoit - Time Machine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --bg-main: #0f1117;
+        --bg-panel: #161922;
+        --bg-subtle: #1e2230;
+        --bg-hover: #262b3d;
+        --border-color: #2a3045;
+        --accent: #3b82f6;
+        --accent-glow: rgba(59, 130, 246, 0.35);
+        --text-main: #f1f5f9;
+        --text-muted: #94a3b8;
+        --diff-add-bg: rgba(34, 197, 94, 0.15);
+        --diff-add-border: #22c55e;
+        --diff-del-bg: rgba(239, 68, 68, 0.15);
+        --diff-del-border: #ef4444;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        background-color: var(--bg-main);
+        color: var(--text-main);
+        overflow: hidden;
+        user-select: none;
+      }
+      pre, code {
+        font-family: 'JetBrains Mono', Consolas, monospace;
+      }
+    </style>
+    %sveltekit.head%
+  </head>
+  <body data-sveltekit-preload-data="hover">
+    <div style="display: contents">%sveltekit.body%</div>
+  </body>
+</html>

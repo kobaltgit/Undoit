@@ -1,27 +1,28 @@
-# Исключения для Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
-.Python
-env/
-venv/
-.venv/
+# OS files
+.DS_Store
+Thumbs.db
 
-# Исключения для IDE
+# Dependencies & Build (Node & SvelteKit)
+node_modules/
+/build/
+/.svelte-kit/
+/package/
+.env
+.env.*
+!.env.example
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# Rust & Tauri
+/src-tauri/target/
+**/*.rs.bk
+Cargo.lock
+
+# App Local Data & Temp
+UndoitData/
+*.tmp
+*.undoit_restore_tmp
+
+# IDEs
 .vscode/
 .idea/
-
-# Исключения для сборки
-/dist/
-/build/
-/output/
-/site/
-*.spec
-
-# Файлы Qt
-*.qm
-.DS_Store
-cortex-snapshot.json
-cortex-snapshot (восстановлено).json
-CortexDevAnalyzer.exe

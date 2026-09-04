@@ -1,0 +1,10 @@
+[build]
+jobs = 2
+
+
+[registries.crates-io]
+protocol = "sparse"
+
+[net]
+retry = 5
+git-fetch-with-cli = false

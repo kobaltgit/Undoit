@@ -1,0 +1,47 @@
+name: 🐛 Отчет об ошибке (Bug Report)
+description: Сообщите об ошибке или сбое в работе Undoit
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Спасибо, что помогаете делать Undoit надежнее! Пожалуйста, заполните форму ниже.
+  - type: input
+    id: version
+    attributes:
+      label: Версия Undoit
+      description: Укажите версию (например, v2.0.0 или Portable/Installer)
+      placeholder: v2.0.0 Portable
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Версия Windows
+      description: Windows 10 / Windows 11 (сборка / разрядность)
+      placeholder: Windows 11 Pro 23H2 (x64)
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Описание проблемы
+      description: Что именно пошло не так?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Шаги для воспроизведения
+      description: 1. Открыть папку... 2. Отредактировать файл...
+      placeholder: |
+        1. Добавил папку в мониторинг
+        2. Изменил файл test.docx
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Ожидаемое поведение
+      description: Что должно было произойти?
