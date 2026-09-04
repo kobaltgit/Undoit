@@ -760,129 +760,134 @@ By default, your Desktop is being watched. You can change the watched folders in
 <context>
     <name>SettingsWindow</name>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="100"/>
+        <location filename="../../app/ui/settings_window.py" line="106"/>
         <source>Undoit - Настройки</source>
         <translation>Undoit - Settings</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="104"/>
-        <location filename="../../app/ui/settings_window.py" line="230"/>
+        <location filename="../../app/ui/settings_window.py" line="110"/>
+        <location filename="../../app/ui/settings_window.py" line="255"/>
         <source>Авто</source>
         <translation>Auto</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="104"/>
+        <location filename="../../app/ui/settings_window.py" line="110"/>
         <source>Светлая</source>
         <translation>Light</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="104"/>
+        <location filename="../../app/ui/settings_window.py" line="110"/>
         <source>Темная</source>
         <translation>Dark</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="108"/>
-        <location filename="../../app/ui/settings_window.py" line="233"/>
+        <location filename="../../app/ui/settings_window.py" line="114"/>
+        <location filename="../../app/ui/settings_window.py" line="258"/>
         <source>Русский</source>
         <translation>Russian</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="108"/>
+        <location filename="../../app/ui/settings_window.py" line="114"/>
         <source>English</source>
         <translation>English</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="118"/>
+        <location filename="../../app/ui/settings_window.py" line="124"/>
         <source>Отслеживаемые элементы</source>
         <translation>Watched Items</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="128"/>
+        <location filename="../../app/ui/settings_window.py" line="134"/>
         <source>Добавить папку</source>
         <translation>Add Folder</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="129"/>
+        <location filename="../../app/ui/settings_window.py" line="135"/>
         <source>Добавить файл(ы)</source>
         <translation>Add File(s)</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="130"/>
+        <location filename="../../app/ui/settings_window.py" line="136"/>
         <source>Удалить выбранное</source>
         <translation>Remove Selected</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="141"/>
+        <location filename="../../app/ui/settings_window.py" line="148"/>
         <source>Исключения для папки</source>
         <translation>Folder Exclusions</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="149"/>
+        <location filename="../../app/ui/settings_window.py" line="156"/>
         <source>Добавить исключение</source>
         <translation>Add Exclusion</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="150"/>
+        <location filename="../../app/ui/settings_window.py" line="157"/>
         <source>Удалить исключение</source>
         <translation>Remove Exclusion</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="164"/>
+        <location filename="../../app/ui/settings_window.py" line="158"/>
+        <source>Редактировать файл исключений</source>
+        <translation>Edit Exclusions File</translation>
+    </message>
+    <message>
+        <location filename="../../app/ui/settings_window.py" line="172"/>
         <source>Основные</source>
         <translation>General</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="167"/>
+        <location filename="../../app/ui/settings_window.py" line="175"/>
         <source>Запускать при старте системы</source>
         <translation>Launch on system startup</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="174"/>
+        <location filename="../../app/ui/settings_window.py" line="182"/>
         <source>Внешний вид</source>
         <translation>Appearance</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="178"/>
+        <location filename="../../app/ui/settings_window.py" line="186"/>
         <source>Тема приложения:</source>
         <translation>Application Theme:</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="182"/>
+        <location filename="../../app/ui/settings_window.py" line="190"/>
         <source>Язык интерфейса:</source>
         <translation>Interface Language:</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="189"/>
+        <location filename="../../app/ui/settings_window.py" line="197"/>
         <source>Закрыть</source>
         <translation>Close</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="248"/>
+        <location filename="../../app/ui/settings_window.py" line="273"/>
         <source>Исключения (выберите папку)</source>
         <translation>Exclusions (select a folder)</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="257"/>
+        <location filename="../../app/ui/settings_window.py" line="282"/>
         <source>Исключения для: {0}</source>
         <translation>Exclusions for: {0}</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="262"/>
+        <location filename="../../app/ui/settings_window.py" line="287"/>
         <source>Исключения (только для папок)</source>
         <translation>Exclusions (folders only)</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="279"/>
+        <location filename="../../app/ui/settings_window.py" line="304"/>
         <source>Выберите папку для отслеживания</source>
         <translation>Select a folder to watch</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="284"/>
+        <location filename="../../app/ui/settings_window.py" line="309"/>
         <source>Выберите файл(ы) для отслеживания</source>
         <translation>Select file(s) to watch</translation>
     </message>
     <message>
-        <location filename="../../app/ui/settings_window.py" line="318"/>
+        <location filename="../../app/ui/settings_window.py" line="343"/>
         <source>Выберите папку для исключения</source>
         <translation>Select a folder to exclude</translation>
     </message>

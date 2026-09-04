@@ -20,21 +20,39 @@ import fitz
 from docx import Document 
 from openpyxl import load_workbook 
 
+# --- Импорт для правил .gitignore ---
+from app.file_watcher import IgnoreManager
+
 
 class ScanWorker(QObject):
     """
     Рабочий, выполняющий сканирование файлов в отдельном потоке.
-    Теперь понимает сложную структуру 'watched_items' с исключениями.
+    Теперь понимает сложную структуру 'watched_items' с исключениями и правила .gitignore.
     """
     finished = Signal()
     progress = Signal(str)
     scan_notification = Signal(str, QSystemTrayIcon.MessageIcon)
 
-    def __init__(self, history_manager, items_to_scan: List[Dict]):
+    def __init__(self, history_manager, items_to_scan: List[Dict], ignore_manager: Optional[IgnoreManager]):
         super().__init__()
         self.history_manager = history_manager
         self.items_to_scan = items_to_scan
+        self.ignore_manager = ignore_manager
         self._should_stop = False
+
+    def _is_temp_ide_file(self, path: Path) -> bool:
+        """
+        Внутренний фильтр для отсеивания короткоживущих временных файлов,
+        создаваемых IDE, таких как VS Code.
+        """
+        try:
+            name = path.name
+            if '.' in name: return False
+            if len(name) < 20: return False
+            int(name, 16)
+            return True
+        except (ValueError, IndexError):
+            return False
 
     def stop(self):
         self._should_stop = True
@@ -62,6 +80,9 @@ class ScanWorker(QObject):
                     continue
 
                 if item_type == "file":
+                    if self._is_temp_ide_file(path): continue
+                    if self.ignore_manager and self.ignore_manager.is_ignored(path): continue
+                    
                     self.progress.emit(path.name)
                     try:
                         self.history_manager.add_initial_version(path)
@@ -69,19 +90,27 @@ class ScanWorker(QObject):
                         self.scan_notification.emit(self.tr("Ошибка при обработке {0}: {1}").format(path, e), QSystemTrayIcon.Warning)
 
                 elif item_type == "folder":
-                    # Преобразуем строки исключений в Path объекты для корректной работы
                     exclusion_paths = {Path(ex).resolve() for ex in exclusions}
-
                     for root, dirs, files in os.walk(path):
                         if self._should_stop: break
+                        
+                        current_root_path = Path(root)
+                        if self._is_temp_ide_file(current_root_path):
+                            dirs[:] = []
+                            continue
+                        if self.ignore_manager and self.ignore_manager.is_ignored(current_root_path):
+                            dirs[:] = []
+                            continue
 
-                        # --- Эффективная логика исключений ---
-                        # Модифицируем 'dirs' на месте, чтобы os.walk не заходил в исключенные папки
                         dirs[:] = [d for d in dirs if Path(root, d).resolve() not in exclusion_paths]
 
                         for name in files:
                             if self._should_stop: break
-                            file_path = Path(root) / name
+                            file_path = current_root_path / name
+                            
+                            if self._is_temp_ide_file(file_path): continue
+                            if self.ignore_manager and self.ignore_manager.is_ignored(file_path): continue
+
                             self.progress.emit(file_path.name)
                             try:
                                 self.history_manager.add_initial_version(file_path)
@@ -105,10 +134,11 @@ class CleanupWorker(QObject):
     progress = Signal(str)
     cleanup_notification = Signal(str, QSystemTrayIcon.MessageIcon)
 
-    def __init__(self, history_manager, watched_items: List[Dict]):
+    def __init__(self, history_manager, watched_items: List[Dict], ignore_manager: Optional[IgnoreManager]):
         super().__init__()
         self.history_manager = history_manager
         self.watched_items = watched_items
+        self.ignore_manager = ignore_manager
         self._should_stop = False
 
     def stop(self):
@@ -121,14 +151,29 @@ class CleanupWorker(QObject):
         )
         messages, files_deleted = self.history_manager.clean_unwatched_files_in_db(
             self.watched_items,
+            self.ignore_manager,
             lambda: self._should_stop
         )
         for msg, icon_type in messages:
             self.cleanup_notification.emit(msg, icon_type)
 
         if not self._should_stop:
-            if files_deleted > 0:
-                self.cleanup_notification.emit(self.tr("Фоновая очистка истории завершена. Удалено {0} записей.").format(files_deleted), QSystemTrayIcon.Information)
+            # --- НОВЫЙ БЛОК: Запускаем полную сборку мусора ---
+            self.cleanup_notification.emit(
+                self.tr("Проверка целостности хранилища..."),
+                QSystemTrayIcon.Information
+            )
+            orphans_deleted = self.history_manager.cleanup_all_orphan_objects(lambda: self._should_stop)
+            if orphans_deleted > 0:
+                 self.cleanup_notification.emit(
+                    self.tr("Удалено {0} объектов-сирот из хранилища.").format(orphans_deleted),
+                    QSystemTrayIcon.Information
+                )
+            # --- КОНЕЦ НОВОГО БЛОКА ---
+
+            if files_deleted > 0 or orphans_deleted > 0:
+                total_deleted = files_deleted + orphans_deleted
+                self.cleanup_notification.emit(self.tr("Фоновая очистка истории завершена. Удалено {0} записей/объектов.").format(total_deleted), QSystemTrayIcon.Information)
             else:
                 self.cleanup_notification.emit(self.tr("Фоновая очистка истории завершена. Нет файлов для удаления."), QSystemTrayIcon.Information)
         else:
@@ -145,24 +190,20 @@ class HistoryManager(QObject):
     scan_finished = Signal()
     cleanup_started = Signal()
     cleanup_finished = Signal()
-    file_list_updated = Signal() # Обновляется, когда добавляется/удаляется *отслеживаемый* файл
-    version_added = Signal(int) # Испускается, когда добавляется новая версия к *существующему* файлу (file_id)
-    version_deleted = Signal(int) # Испускается, когда версия удалена (file_id)
-    files_deleted = Signal(list) # Испускается, когда файлы полностью удалены (список кортежей (file_id, original_path_str))
+    file_list_updated = Signal()
+    version_added = Signal(int)
+    version_deleted = Signal(int)
+    files_deleted = Signal(list)
     history_notification = Signal(str, QSystemTrayIcon.MessageIcon)
     scan_progress = Signal(str)
 
-    # Новый сигнал для обновления информации о хранилище
-    # Аргументы: (процент_заполнения_иконки_0_1, размер_хранилища_форматировано,
-    #             свободное_место_диска_форматировано, процент_для_тултипа_0_100)
     storage_info_updated = Signal(float, str, str, float)
 
     DB_NAME = "metadata.db"
     OBJECTS_DIR = "objects"
-    STORAGE_SCAN_INTERVAL_MS = 60 * 1000 # 1 минута
+    STORAGE_SCAN_INTERVAL_MS = 60 * 1000
 
-    # --- Списки поддерживаемых расширений для предпросмотра ---
-    TEXT_EXTENSIONS = {'.txt', '.log', '.md', '.py', '.json', '.xml', '.html', '.css', '.js', '.csv'}
+    TEXT_EXTENSIONS = {'.txt', '.log', '.md', '.py', '.json', '.xml', '.html', '.css', '.js', '.csv', '.gitignore'}
     IMAGE_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.webp', '.tiff', '.tif', '.svg'}
     PDF_EXTENSIONS = {'.pdf'}
     DOCX_EXTENSIONS = {'.docx'}
@@ -184,18 +225,15 @@ class HistoryManager(QObject):
         self._db_connection = sqlite3.connect(self.db_path, check_same_thread=False)
         self._db_connection.execute("PRAGMA foreign_keys = ON")
         self._setup_database()
-        # --- Система асинхронной очереди задач для предотвращения deadlock ---
         self._pending_operation: Optional[str] = None
         self._pending_args: Optional[tuple] = None
-        self._temp_preview_files: List[Path] = [] # Список временных файлов для очистки
+        self._temp_preview_files: List[Path] = []
 
-        # --- Таймер для периодического обновления информации о хранилище ---
         self._storage_info_timer = QTimer(self)
         self._storage_info_timer.setInterval(self.STORAGE_SCAN_INTERVAL_MS)
         self._storage_info_timer.timeout.connect(self.update_storage_info)
         self._storage_info_timer.start()
 
-        # Первоначальное обновление информации о хранилище (выполняется синхронно)
         self.update_storage_info()
 
     def _calculate_hash(self, file_path: Path) -> str | None:
@@ -209,7 +247,6 @@ class HistoryManager(QObject):
             return None
 
     def _format_size(self, size_bytes: int) -> str:
-        """Форматирует размер файла в удобочитаемый вид."""
         if size_bytes < 1024:
             return self.tr("{0} B").format(size_bytes)
         elif size_bytes < 1024 ** 2:
@@ -220,16 +257,15 @@ class HistoryManager(QObject):
             return self.tr("{0:.1f} GB").format(size_bytes / (1024 ** 3))
 
     def _request_stop_all_workers(self):
-        """Отправляет неблокирующий запрос на остановку всем активным рабочим."""
         if self._is_scan_running and self._scan_worker:
             self._scan_worker.stop()
         if self._is_cleanup_running and self._cleanup_worker:
             self._cleanup_worker.stop()
 
-    def start_scan(self, items_to_scan: List[Dict]):
+    def start_scan(self, items_to_scan: List[Dict], ignore_manager: Optional[IgnoreManager]):
         if self._is_scan_running or self._is_cleanup_running:
             self._pending_operation = "scan"
-            self._pending_args = (items_to_scan,)
+            self._pending_args = (items_to_scan, ignore_manager)
             self._request_stop_all_workers()
             return
 
@@ -240,7 +276,7 @@ class HistoryManager(QObject):
         self._is_scan_running = True
         self.scan_started.emit()
         self._scan_thread = QThread(self)
-        self._scan_worker = ScanWorker(self, items_to_scan)
+        self._scan_worker = ScanWorker(self, items_to_scan, ignore_manager)
         self._scan_worker.moveToThread(self._scan_thread)
         self._scan_thread.started.connect(self._scan_worker.run)
         self._scan_worker.finished.connect(self._on_scan_finished_internal)
@@ -248,17 +284,17 @@ class HistoryManager(QObject):
         self._scan_worker.progress.connect(self.scan_progress)
         self._scan_thread.start()
 
-    def start_cleanup(self, watched_items: List[Dict]):
+    def start_cleanup(self, watched_items: List[Dict], ignore_manager: Optional[IgnoreManager]):
         if self._is_scan_running or self._is_cleanup_running:
             self._pending_operation = "cleanup"
-            self._pending_args = (watched_items,)
+            self._pending_args = (watched_items, ignore_manager)
             self._request_stop_all_workers()
             return
 
         self._is_cleanup_running = True
         self.cleanup_started.emit()
         self._cleanup_thread = QThread(self)
-        self._cleanup_worker = CleanupWorker(self, watched_items)
+        self._cleanup_worker = CleanupWorker(self, watched_items, ignore_manager)
         self._cleanup_worker.moveToThread(self._cleanup_thread)
         self._cleanup_thread.started.connect(self._cleanup_worker.run)
         self._cleanup_worker.finished.connect(self._on_cleanup_finished_internal)
@@ -267,12 +303,7 @@ class HistoryManager(QObject):
 
     @Slot()
     def update_storage_info(self):
-        """
-        Рассчитывает текущее использование хранилища относительно свободного места на диске
-        и отправляет сигнал.
-        """
         try:
-            # 1. Рассчитываем размер папки хранилища Undoit
             total_undoit_storage_size_bytes = 0
             if self.storage_path.exists():
                 for dirpath, dirnames, filenames in os.walk(self.storage_path):
@@ -281,52 +312,35 @@ class HistoryManager(QObject):
                         if fp.is_file() and not fp.is_symlink():
                             total_undoit_storage_size_bytes += fp.stat().st_size
 
-            # 2. Получаем информацию о диске, на котором находится хранилище
-            # Передаем корень диска в psutil.disk_usage
             disk_root = str(self.storage_path.anchor if self.storage_path.is_absolute() else self.storage_path.resolve().anchor)
             disk_usage = psutil.disk_usage(disk_root)
-
             free_disk_space_bytes = disk_usage.free
 
-            # 3. Рассчитываем проценты
             if free_disk_space_bytes > 0:
-                # Отношение размера хранилища Undoit к свободному месту на диске
                 storage_to_free_ratio = total_undoit_storage_size_bytes / free_disk_space_bytes
-
-                # Процент для иконки (0.0 до 1.0), ограниченный 100%
                 icon_fill_percentage = min(storage_to_free_ratio, 1.0)
-
-                # Процент для тултипа (0.0 до 100.0), также ограниченный 100%
                 tooltip_percentage = min(storage_to_free_ratio * 100.0, 100.0)
             else:
-                # Если свободного места нет, то хранилище занимает 100% (или больше)
-                # от доступного свободного места.
-                icon_fill_percentage = 1.0 # Полностью заполнено (красный)
-                tooltip_percentage = 100.0 # 100%
+                icon_fill_percentage = 1.0
+                tooltip_percentage = 100.0
 
-            # Форматируем размеры
             formatted_storage_size = self._format_size(total_undoit_storage_size_bytes)
             formatted_free_disk_space = self._format_size(free_disk_space_bytes)
 
-            # Отправляем сигнал
             self.storage_info_updated.emit(
                 icon_fill_percentage, 
                 formatted_storage_size, 
                 formatted_free_disk_space, 
                 tooltip_percentage
             )
-
         except (OSError, psutil.Error, FileNotFoundError) as e:
             self.history_notification.emit(
                 self.tr("Ошибка при получении информации о хранилище: {0}").format(e),
                 QSystemTrayIcon.Warning
             )
-            # При ошибке устанавливаем значения по умолчанию
             self.storage_info_updated.emit(0.0, self.tr("Н/Д"), self.tr("Н/Д"), 0.0)
 
-
     def _execute_pending_operation(self):
-        """Выполняет отложенную операцию после завершения текущей."""
         if not self._pending_operation:
             return
 
@@ -347,14 +361,11 @@ class HistoryManager(QObject):
             self._scan_worker.deleteLater()
         if self._scan_thread:
             self._scan_thread.quit()
-            self._scan_thread.wait() # Безопасно ждать здесь, т.к. мы в слоте главного потока
+            self._scan_thread.wait()
             self._scan_thread.deleteLater()
         self._scan_worker, self._scan_thread = None, None
-
-        # self.file_list_updated.emit() # Теперь обновляется в _add_version_from_path
         self.scan_finished.emit()
-        self.update_storage_info() # Обновляем информацию о хранилище после сканирования
-
+        self.update_storage_info()
         self._execute_pending_operation()
 
     @Slot()
@@ -364,14 +375,12 @@ class HistoryManager(QObject):
             self._cleanup_worker.deleteLater()
         if self._cleanup_thread:
             self._cleanup_thread.quit()
-            self._cleanup_thread.wait() # Безопасно ждать здесь
+            self._cleanup_thread.wait()
             self._cleanup_thread.deleteLater()
         self._cleanup_worker, self._cleanup_thread = None, None
-
-        self.file_list_updated.emit() # Очистка может удалить файлы, поэтому обновляем список
+        self.file_list_updated.emit()
         self.cleanup_finished.emit()
-        self.update_storage_info() # Обновляем информацию о хранилище после очистки
-
+        self.update_storage_info()
         self._execute_pending_operation()
 
     def add_initial_version(self, file_path: Path):
@@ -380,7 +389,6 @@ class HistoryManager(QObject):
             cursor.execute("SELECT id FROM tracked_files WHERE original_path = ?", (str(file_path),))
             if cursor.fetchone():
                 return
-            # _add_version_from_path теперь сам испускает сигналы, если файл новый
             self._add_version_from_path(file_path)
 
     @Slot(str)
@@ -402,7 +410,6 @@ class HistoryManager(QObject):
 
             result_tuple = self._add_version_from_path(file_path, file_hash)
             if result_tuple:
-                # _add_version_from_path уже испустил file_list_updated если was_new_file
                 was_new_file, file_id = result_tuple
             else:
                 error_message = self.tr("Не удалось сохранить версию файла {0}.").format(file_path.name)
@@ -411,37 +418,23 @@ class HistoryManager(QObject):
             self.history_notification.emit(error_message, QSystemTrayIcon.Critical)
             return
 
-        # Сигнал version_added для существующего файла (для нового он испускается в _add_version_from_path)
         if not was_new_file:
             self.version_added.emit(file_id)
 
         if was_new_file:
-            # self.file_list_updated.emit() # Теперь испускается в _add_version_from_path
             self.history_notification.emit(self.tr("Добавлен новый файл для отслеживания: {0}").format(file_path.name), QSystemTrayIcon.Information)
         else:
             self.history_notification.emit(self.tr("Сохранена новая версия файла: {0}").format(file_path.name), QSystemTrayIcon.Information)
 
-        self.update_storage_info() # Обновляем информацию о хранилище после добавления версии
+        self.update_storage_info()
 
     def _cleanup_single_version_and_objects(self, version_id: int, file_id: int, sha256_hash: str) -> bool:
-        """
-        Приватный метод для удаления одной версии и связанных объектов.
-        Предполагает, что соединение с БД уже заблокировано.
-        Возвращает True, если версия была удалена, False в противном случае.
-        """
         cursor = self._db_connection.cursor()
-
-        # 1. Удаляем версию из базы данных
         cursor.execute("DELETE FROM versions WHERE id = ?", (version_id,))
-
-        # 2. Проверяем, остались ли еще версии для этого файла.
-        # Если версий не осталось, удаляем запись о файле из tracked_files
         cursor.execute("SELECT COUNT(*) FROM versions WHERE file_id = ?", (file_id,))
         remaining_versions_count = cursor.fetchone()[0]
 
         if remaining_versions_count == 0:
-            # --- ИЗМЕНЕНИЕ НАЧАЛО ---
-            # Получаем original_path перед удалением файла из tracked_files
             cursor.execute("SELECT original_path FROM tracked_files WHERE id = ?", (file_id,))
             original_path_result = cursor.fetchone()
             original_path_str = original_path_result[0] if original_path_result else None
@@ -449,24 +442,19 @@ class HistoryManager(QObject):
             cursor.execute("DELETE FROM tracked_files WHERE id = ?", (file_id,))
             self.history_notification.emit(self.tr("Отслеживаемый файл (ID {0}) удален, так как не осталось версий.").format(file_id), QSystemTrayIcon.Information)
 
-            # Испускаем сигнал, что файл полностью удален (для обновления списка файлов)
             if original_path_str:
                 self.files_deleted.emit([(file_id, original_path_str)])
-            # --- ИЗМЕНЕНИЕ КОНЕЦ ---
 
-        # 3. Проверяем, есть ли еще ссылки на этот объект (хеш) в других версиях
         cursor.execute("SELECT COUNT(*) FROM versions WHERE sha256_hash = ?", (sha256_hash,))
         references_count = cursor.fetchone()[0]
 
         if references_count == 0:
-            # Если ссылок больше нет, можно удалить физический файл из объектов
             object_path = self.get_object_path(sha256_hash)
             if object_path and object_path.exists():
                 try:
                     os.remove(object_path)
-                    # Проверяем, пуста ли папка хеша, и удаляем ее, если да
                     object_subdir = object_path.parent
-                    if not list(object_subdir.iterdir()): # Если папка пуста
+                    if not list(object_subdir.iterdir()):
                         os.rmdir(object_subdir)
                     self.history_notification.emit(self.tr("Файл хранилища {0} удален.").format(sha256_hash), QSystemTrayIcon.Information)
                 except OSError as e:
@@ -474,34 +462,26 @@ class HistoryManager(QObject):
         return True
 
     def delete_file_version(self, version_id: int, file_id: int, sha256_hash: str) -> bool:
-        """
-        Удаляет конкретную версию файла из базы данных и соответствующий объект из хранилища.
-        Удаляет объект из файловой системы только если нет других ссылок на этот хеш.
-        Это публичный метод для удаления ОДНОЙ версии.
-        """
         with self._db_connection_lock:
             cursor = self._db_connection.cursor()
             try:
-                # 1. Получаем информацию о версии, если она существует
                 cursor.execute("SELECT sha256_hash FROM versions WHERE id = ?", (version_id,))
                 result = cursor.fetchone()
                 if not result:
                     self.history_notification.emit(self.tr("Версия с ID {0} не найдена.").format(version_id), QSystemTrayIcon.Warning)
                     return False
 
-                # Проверяем, совпадает ли переданный хеш с хешем в БД
                 if result[0] != sha256_hash:
                     self.history_notification.emit(self.tr("Несоответствие хеша для версии {0}. Удаление отменено.").format(version_id), QSystemTrayIcon.Warning)
                     return False
 
-                # Используем новую приватную логику
                 success = self._cleanup_single_version_and_objects(version_id, file_id, sha256_hash)
 
                 self._db_connection.commit()
                 if success:
                     self.history_notification.emit(self.tr("Версия успешно удалена."), QSystemTrayIcon.Information)
-                    self.version_deleted.emit(file_id) # Оповещаем UI, что версии изменились для данного файла
-                    self.update_storage_info() # Обновляем информацию о хранилище
+                    self.version_deleted.emit(file_id)
+                    self.update_storage_info()
                 return success
             except sqlite3.Error as e:
                 self._db_connection.rollback()
@@ -509,15 +489,11 @@ class HistoryManager(QObject):
                 return False
 
     def delete_multiple_versions(self, versions_data: List[Tuple[int, int, str]]) -> Tuple[int, List[int]]:
-        """
-        Удаляет несколько версий файлов из базы данных и соответствующие объекты из хранилища.
-        Возвращает кортеж: (количество_удаленных_версий, список_file_ids_удаленных_файлов).
-        """
         deleted_versions_count = 0
         affected_file_ids: Set[int] = set()
         affected_hashes: Set[str] = set()
         file_ids_completely_removed: List[int] = []
-        files_completely_removed_info: List[Tuple[int, str]] = [] # Для сигнала files_deleted
+        files_completely_removed_info: List[Tuple[int, str]] = []
 
         if not versions_data:
             return 0, []
@@ -525,7 +501,6 @@ class HistoryManager(QObject):
         with self._db_connection_lock:
             cursor = self._db_connection.cursor()
             try:
-                # Удаляем все версии за одну транзакцию
                 version_ids_to_delete = [vd[0] for vd in versions_data]
                 if version_ids_to_delete:
                     placeholders = ','.join('?' for _ in version_ids_to_delete)
@@ -537,11 +512,9 @@ class HistoryManager(QObject):
                         affected_file_ids.add(file_id)
                         affected_hashes.add(sha256_hash)
 
-                    # Проверяем, какие tracked_files больше не имеют версий
-                    for file_id in list(affected_file_ids): # Используем list() чтобы избежать изменения во время итерации
+                    for file_id in list(affected_file_ids):
                         cursor.execute("SELECT COUNT(*) FROM versions WHERE file_id = ?", (file_id,))
                         if cursor.fetchone()[0] == 0:
-                            # Получаем original_path перед удалением
                             cursor.execute("SELECT original_path FROM tracked_files WHERE id = ?", (file_id,))
                             path_result = cursor.fetchone()
                             if path_result:
@@ -550,19 +523,17 @@ class HistoryManager(QObject):
                             cursor.execute("DELETE FROM tracked_files WHERE id = ?", (file_id,))
                             file_ids_completely_removed.append(file_id)
                             self.history_notification.emit(self.tr("Отслеживаемый файл (ID {0}) удален, так как не осталось версий после пакетного удаления.").format(file_id), QSystemTrayIcon.Information)
-                            affected_file_ids.discard(file_id) # Удаляем из affected_file_ids, чтобы не посылать version_deleted
+                            affected_file_ids.discard(file_id)
 
                     self._db_connection.commit()
                     self.history_notification.emit(self.tr("Удалено {0} версий файлов.").format(deleted_versions_count), QSystemTrayIcon.Information)
                     self.update_storage_info()
 
-                    # Оповещаем UI
                     if files_completely_removed_info:
                         self.files_deleted.emit(files_completely_removed_info)
                     for file_id in affected_file_ids:
-                        self.version_deleted.emit(file_id) # Оповещаем об изменении списка версий для этих файлов
+                        self.version_deleted.emit(file_id)
 
-                    # Очищаем физические объекты
                     self._cleanup_orphan_objects(affected_hashes)
 
                 return deleted_versions_count, file_ids_completely_removed
@@ -571,51 +542,36 @@ class HistoryManager(QObject):
                 self.history_notification.emit(self.tr("Ошибка при пакетном удалении версий: {0}").format(e), QSystemTrayIcon.Critical)
                 return 0, []
 
-
     def delete_tracked_files(self, file_ids: Set[int]) -> Tuple[int, Set[str]]:
-        """
-        Полностью удаляет один или несколько отслеживаемых файлов и все их версии.
-        Возвращает количество удаленных файлов и набор хешей, которые потенциально можно удалить.
-        """
         deleted_count = 0
         potential_orphan_hashes = set()
-        files_to_delete_info: List[Tuple[int, str]] = [] # список для хранения (file_id, original_path)
+        files_to_delete_info: List[Tuple[int, str]] = []
 
         with self._db_connection_lock:
             cursor = self._db_connection.cursor()
             try:
-                # Сначала собираем информацию о файлах, которые будут удалены, ДО их удаления
                 for file_id in file_ids:
                     cursor.execute("SELECT original_path FROM tracked_files WHERE id = ?", (file_id,))
                     path_result = cursor.fetchone()
                     if path_result:
                         files_to_delete_info.append((file_id, path_result[0]))
 
-                if not files_to_delete_info: # Если нет файлов для удаления, выходим
+                if not files_to_delete_info:
                     return 0, set()
 
-                for f_id, _ in files_to_delete_info: # Теперь итерируемся по собранной информации
-                    # 1. Получаем все хеши, связанные с этим файлом
+                for f_id, _ in files_to_delete_info:
                     cursor.execute("SELECT sha256_hash FROM versions WHERE file_id = ?", (f_id,))
                     hashes_to_check = {row[0] for row in cursor.fetchall()}
                     potential_orphan_hashes.update(hashes_to_check)
-
-                    # 2. Удаляем все версии файла
                     cursor.execute("DELETE FROM versions WHERE file_id = ?", (f_id,))
-
-                    # 3. Удаляем сам файл из tracked_files
                     cursor.execute("DELETE FROM tracked_files WHERE id = ?", (f_id,))
                     deleted_count += 1
 
                 self._db_connection.commit()
                 self.history_notification.emit(self.tr("Удалено {0} отслеживаемых файлов и их версий.").format(deleted_count), QSystemTrayIcon.Information)
-                self.files_deleted.emit(files_to_delete_info) # Отправляем (file_id, original_path)
-
-                self.update_storage_info() # Обновляем информацию о хранилище
-
-                # 4. Проверяем и удаляем физические файлы из хранилища, если они больше нигде не используются
+                self.files_deleted.emit(files_to_delete_info)
+                self.update_storage_info()
                 self._cleanup_orphan_objects(potential_orphan_hashes)
-
                 return deleted_count, potential_orphan_hashes
             except sqlite3.Error as e:
                 self._db_connection.rollback()
@@ -623,13 +579,11 @@ class HistoryManager(QObject):
                 return 0, set()
 
     def _cleanup_orphan_objects(self, hashes_to_check: Set[str]):
-        """Удаляет физические файлы из хранилища, если на них больше нет ссылок в БД."""
         with self._db_connection_lock:
             cursor = self._db_connection.cursor()
             for sha256_hash in hashes_to_check:
                 cursor.execute("SELECT COUNT(*) FROM versions WHERE sha256_hash = ?", (sha256_hash,))
                 references_count = cursor.fetchone()[0]
-
                 if references_count == 0:
                     object_path = self.get_object_path(sha256_hash)
                     if object_path and object_path.exists():
@@ -642,6 +596,53 @@ class HistoryManager(QObject):
                         except OSError as e:
                             self.history_notification.emit(self.tr("Не удалось удалить файл хранилища {0} (объект-сирота): {1}").format(sha256_hash, e), QSystemTrayIcon.Warning)
 
+    def cleanup_all_orphan_objects(self, should_stop_callback=None) -> int:
+        """
+        Полностью сканирует папку 'objects' и удаляет все файлы, на которые нет
+        ссылок в таблице 'versions'. Возвращает количество удаленных файлов.
+        """
+        deleted_count = 0
+        try:
+            with self._db_connection_lock:
+                cursor = self._db_connection.cursor()
+                # 1. Получаем ВСЕ уникальные хеши, которые сейчас используются в базе данных
+                cursor.execute("SELECT DISTINCT sha256_hash FROM versions")
+                valid_hashes = {row[0] for row in cursor.fetchall()}
+
+            # 2. Сканируем файловую систему
+            if not self.objects_path.exists():
+                return 0
+
+            # Собираем список всех объектов в хранилище
+            object_files_on_disk = []
+            for subdir in self.objects_path.iterdir():
+                if should_stop_callback and should_stop_callback(): return deleted_count
+                if subdir.is_dir() and len(subdir.name) == 2:
+                    for obj_file in subdir.iterdir():
+                        object_files_on_disk.append(obj_file)
+            
+            # 3. Сравниваем и удаляем сирот
+            for obj_path in object_files_on_disk:
+                if should_stop_callback and should_stop_callback(): return deleted_count
+
+                file_hash = obj_path.parent.name + obj_path.name
+                if file_hash not in valid_hashes:
+                    try:
+                        os.remove(obj_path)
+                        deleted_count += 1
+                        # Проверяем, пуста ли папка хеша, и удаляем ее, если да
+                        object_subdir = obj_path.parent
+                        if not any(object_subdir.iterdir()):
+                            os.rmdir(object_subdir)
+                        self.history_notification.emit(self.tr("Файл хранилища {0} удален (объект-сирота).").format(file_hash), QSystemTrayIcon.Information)
+                    except OSError as e:
+                        self.history_notification.emit(self.tr("Не удалось удалить файл хранилища {0} (объект-сирота): {1}").format(file_hash, e), QSystemTrayIcon.Warning)
+
+        except (sqlite3.Error, OSError) as e:
+            self.history_notification.emit(self.tr("Ошибка при полной очистке хранилища: {0}").format(e), QSystemTrayIcon.Critical)
+
+        return deleted_count
+
     def get_all_tracked_files(self) -> List[tuple]:
         with self._db_connection_lock:
             cursor = self._db_connection.cursor()
@@ -651,7 +652,6 @@ class HistoryManager(QObject):
     def get_versions_for_file(self, file_id: int) -> List[tuple]:
         with self._db_connection_lock:
             cursor = self._db_connection.cursor()
-            # Добавляем id версии в SELECT
             cursor.execute("SELECT id, timestamp, sha256_hash, file_size FROM versions WHERE file_id = ? ORDER BY timestamp DESC", (file_id,))
             return cursor.fetchall()
 
@@ -660,28 +660,18 @@ class HistoryManager(QObject):
         return object_path if object_path.exists() else None
 
     def _add_temp_preview_file(self, temp_file_path: Path):
-        """Добавляет временный файл предпросмотра в список для последующей очистки."""
         self._temp_preview_files.append(temp_file_path)
 
     def _cleanup_temp_preview_files(self):
-        """Удаляет все временные файлы предпросмотра."""
         for temp_file in self._temp_preview_files:
             try:
                 if temp_file.exists():
                     os.remove(temp_file)
-            except OSError as e:
-                # Можно добавить логирование, но уведомление пользователя здесь не нужно
+            except OSError:
                 pass
         self._temp_preview_files.clear()
 
-
     def get_file_content_for_preview(self, object_path: Path, original_file_extension: str) -> Tuple[str, Optional[str]]:
-        """
-        Извлекает содержимое файла для предпросмотра.
-        Возвращает кортеж (тип_контента, данные_контента).
-        Тип контента: "text", "image", "error", "unsupported".
-        Данные контента: строка для текста, путь к временному изображению.
-        """
         file_extension = original_file_extension.lower()
         extracted_content = None
 
@@ -700,37 +690,28 @@ class HistoryManager(QObject):
             elif file_extension in self.PDF_EXTENSIONS:
                 try:
                     doc = fitz.open(object_path)
-
-                    # --- Попытка извлечь текст ---
                     pdf_text_content = ""
                     for page_num in range(doc.page_count):
                         page = doc[page_num]
                         pdf_text_content += page.get_text()
-                        if len(pdf_text_content) > 1024 * 10: # Ограничиваем размер извлеченного текста
+                        if len(pdf_text_content) > 1024 * 10:
                             pdf_text_content = pdf_text_content[:1024 * 10] + "\n..."
                             break
-
-                    if pdf_text_content.strip(): # Если текст найден и он не пустой
+                    if pdf_text_content.strip():
                         doc.close()
                         return "text", pdf_text_content
-
-                    # --- Если текст не найден (например, PDF только из изображений), рендерим первую страницу ---
                     self.history_notification.emit(
                         self.tr("Текст не найден в PDF файле. Попытка отобразить первую страницу как изображение."),
                         QSystemTrayIcon.Information
                     )
-                    page = doc[0] # Берем первую страницу
-                    pix = page.get_pixmap(matrix=fitz.Matrix(150/72, 150/72)) # Рендерим с 150 DPI
-
+                    page = doc[0]
+                    pix = page.get_pixmap(matrix=fitz.Matrix(150/72, 150/72))
                     with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
                         temp_img_path = Path(tmp.name)
                     pix.save(str(temp_img_path))
-
                     doc.close()
                     self._add_temp_preview_file(temp_img_path)
-
                     return "image", str(temp_img_path) 
-
                 except Exception as e:
                     if 'doc' in locals() and not doc.is_closed:
                         doc.close()
@@ -739,9 +720,8 @@ class HistoryManager(QObject):
             elif file_extension in self.DOCX_EXTENSIONS:
                 try:
                     document = Document(object_path)
-                    full_text = [para.text for para in document.paragraphs if para.text.strip()] # Собираем только непустые параграфы
+                    full_text = [para.text for para in document.paragraphs if para.text.strip()]
                     extracted_content = "\n".join(full_text[:50]) + ("\n..." if len(full_text) > 50 else "")
-
                     if extracted_content.strip():
                         return "text", extracted_content
                     else:
@@ -753,32 +733,25 @@ class HistoryManager(QObject):
                 try:
                     workbook = load_workbook(object_path, read_only=True, data_only=True)
                     sheet_names = workbook.sheetnames
-
                     preview_lines = []
                     if sheet_names:
                         preview_lines.append(f"Листы: {', '.join(sheet_names)}")
-
                         sheet = workbook[sheet_names[0]]
                         preview_lines.append(f"Первые 10 строк листа '{sheet_names[0]}':")
                         for i, row in enumerate(sheet.iter_rows(min_row=1, max_row=10)):
                             row_values = [str(cell.value) if cell.value is not None else "" for cell in row]
                             preview_lines.append(f"{', '.join(row_values)}")
-
                     extracted_content = "\n".join(preview_lines)
-
                     if extracted_content.strip():
                         return "text", extracted_content
                     else:
                         return "unsupported", self.tr("Данные не найдены в XLSX файле.")
                 except Exception as e:
                     return "text", self.tr("Не удалось открыть XLSX-файл для предпросмотра: {0}. Возможно, он поврежден.").format(e)
-
             else:
                 return "unsupported", self.tr("Предпросмотр недоступен для этого типа файла.")
-
         except Exception as e:
             return "error", self.tr("Критическая ошибка при предпросмотре файла: {0}").format(e)
-
 
     def _add_version_from_path(self, file_path: Path, precalculated_hash: str = None) -> Optional[Tuple[bool, int]]:
         file_hash = precalculated_hash or self._calculate_hash(file_path)
@@ -809,15 +782,15 @@ class HistoryManager(QObject):
         try:
             self._db_connection.commit()
             if was_new_file:
-                self.version_added.emit(file_id) # Испускаем version_added, даже если это первый файл, чтобы UI мог обновиться.
-                self.file_list_updated.emit() # Испускаем, если файл был новым, для обновления списка файлов.
+                self.version_added.emit(file_id)
+                self.file_list_updated.emit()
             return was_new_file, file_id
         except sqlite3.Error:
             self._db_connection.rollback()
             return None
 
-    def clean_unwatched_files_in_db(self, watched_items: List[Dict], should_stop_callback=None) -> Tuple[List, int]:
-        messages, files_deleted_count, files_to_delete_info = [], 0, [] # Modified: files_to_delete_info will store (file_id, original_path)
+    def clean_unwatched_files_in_db(self, watched_items: List[Dict], ignore_manager: Optional[IgnoreManager], should_stop_callback=None) -> Tuple[List, int]:
+        messages, files_deleted_count, files_to_delete_info = [], 0, []
         watched_files = {Path(item['path']).resolve() for item in watched_items if item['type'] == 'file'}
         watched_folders = [
             (Path(item['path']).resolve(), {Path(ex).resolve() for ex in item.get('exclusions', [])})
@@ -827,31 +800,38 @@ class HistoryManager(QObject):
             cursor = self._db_connection.cursor()
             cursor.execute("SELECT id, original_path FROM tracked_files")
             all_tracked_files = cursor.fetchall()
+
             for file_id, original_path_str in all_tracked_files:
                 if should_stop_callback and should_stop_callback():
                     messages.append((self.tr("Очистка прервана пользователем."), QSystemTrayIcon.Warning))
                     return messages, files_deleted_count
+                
                 try:
                     original_path = Path(original_path_str).resolve()
-                except (OSError, RuntimeError): continue # Пропускаем пути, которые больше не существуют
-                is_watched = False
+                except (OSError, RuntimeError): continue
+                
+                if ignore_manager and ignore_manager.is_ignored(original_path):
+                    files_to_delete_info.append((file_id, original_path_str))
+                    continue
+
+                is_manually_watched = False
                 if original_path in watched_files:
-                    is_watched = True
+                    is_manually_watched = True
                 else:
                     for folder_path, exclusion_paths in watched_folders:
                         if original_path.is_relative_to(folder_path):
                             is_excluded = any(original_path.is_relative_to(ex_path) for ex_path in exclusion_paths)
                             if not is_excluded:
-                                is_watched = True
+                                is_manually_watched = True
                                 break
-                if not is_watched:
-                    files_to_delete_info.append((file_id, original_path_str)) # <--- ДОБАВЛЕНО
+                
+                if not is_manually_watched:
+                    files_to_delete_info.append((file_id, original_path_str))
 
-            if files_to_delete_info: # Original `file_ids_to_delete` list is now derived from files_to_delete_info
-                file_ids_to_delete = [info[0] for info in files_to_delete_info] # Extract just IDs
+            if files_to_delete_info:
+                file_ids_to_delete = [info[0] for info in files_to_delete_info]
                 try:
                     placeholders = ','.join('?' for _ in file_ids_to_delete)
-                    # Сначала собираем хеши для потенциального удаления физических файлов
                     cursor.execute(f"SELECT DISTINCT sha256_hash FROM versions WHERE file_id IN ({placeholders})", file_ids_to_delete)
                     hashes_to_check = {row[0] for row in cursor.fetchall()}
 
@@ -860,11 +840,8 @@ class HistoryManager(QObject):
                     self._db_connection.commit()
                     files_deleted_count = len(file_ids_to_delete)
                     messages.append((self.tr("Удалено {0} записей о файлах, которые больше не отслеживаются.").format(files_deleted_count), QSystemTrayIcon.Information))
-                    self.files_deleted.emit(files_to_delete_info) # Отправляем (file_id, original_path)
-
-                    # Удаляем объекты из хранилища, если они больше не используются
+                    self.files_deleted.emit(files_to_delete_info)
                     self._cleanup_orphan_objects(hashes_to_check)
-
                 except sqlite3.Error as e:
                     messages.append((self.tr("Ошибка при удалении записей из БД: {0}").format(e), QSystemTrayIcon.Critical))
                     self._db_connection.rollback()
@@ -900,11 +877,8 @@ class HistoryManager(QObject):
             self._scan_thread.wait(500)
         if self._cleanup_thread and self._cleanup_thread.isRunning():
             self._cleanup_thread.wait(500)
-
-        self._storage_info_timer.stop() # Останавливаем таймер
-
+        self._storage_info_timer.stop()
         if self._db_connection:
             with self._db_connection_lock:
                 self._db_connection.close()
-
         self._cleanup_temp_preview_files()

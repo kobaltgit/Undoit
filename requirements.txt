@@ -7,3 +7,4 @@ PyMuPDF # Для работы с PDF (альтернатива PyPDF2)
 python-docx # Для работы с DOCX
 openpyxl # Для работы с XLSX
 psutil # Для мониторинга системных ресурсов
+pathspec # Для парсинга правил в стиле .gitignore

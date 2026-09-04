@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # GUI: Окно настроек
+import os # Добавлен импорт для os.startfile
 from pathlib import Path
 from typing import Dict, List
 
@@ -85,7 +86,7 @@ class SettingsWindow(QDialog):
 
         self.setWindowTitle(self.tr("Undoit - Настройки"))
         self.setWindowIcon(app_icon)
-        self.setMinimumWidth(750) # Увеличим минимальную ширину для нового интерфейса
+        self.setMinimumWidth(750)
 
         self._theme_display_to_key_map = {
             self.tr("Авто"): "auto", self.tr("Светлая"): "light", self.tr("Темная"): "dark"
@@ -97,7 +98,6 @@ class SettingsWindow(QDialog):
         }
         self._lang_key_to_display_map = {v: k for k, v in self._lang_display_to_key_map.items()}
 
-        # Получаем стандартные иконки
         self.folder_icon = QApplication.style().standardIcon(QStyle.StandardPixmap.SP_DirIcon)
         self.file_icon = QApplication.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
 
@@ -107,11 +107,9 @@ class SettingsWindow(QDialog):
     def _init_ui(self):
         main_layout = QVBoxLayout(self)
 
-        # --- НОВАЯ СЕКЦИЯ "Отслеживаемые элементы" ---
         items_group = QGroupBox(self.tr("Отслеживаемые элементы"))
         items_main_layout = QHBoxLayout()
 
-        # Левая панель: Список отслеживаемых файлов и папок
         items_list_layout = QVBoxLayout()
         self.items_list = QListWidget()
         self.items_list.itemSelectionChanged.connect(self._on_item_selection_changed)
@@ -132,7 +130,6 @@ class SettingsWindow(QDialog):
         items_list_layout.addWidget(self.items_list)
         items_list_layout.addLayout(items_buttons_layout)
 
-        # Правая панель: Список исключений для выбранной папки
         exclusions_layout = QVBoxLayout()
         self.exclusions_group = QGroupBox(self.tr("Исключения для папки"))
         exclusions_group_layout = QVBoxLayout()
@@ -144,6 +141,10 @@ class SettingsWindow(QDialog):
         self.add_exclusion_button = QPushButton(self.tr("Добавить исключение"))
         self.remove_exclusion_button = QPushButton(self.tr("Удалить исключение"))
 
+        # --- НОВАЯ КНОПКА ---
+        self.edit_ignore_file_button = QPushButton(self.tr("Редактировать файл исключений (.gitignore)"))
+        self.edit_ignore_file_button.clicked.connect(self._on_edit_ignore_file)
+
         self.add_exclusion_button.clicked.connect(self._add_exclusion)
         self.remove_exclusion_button.clicked.connect(self._remove_exclusion)
 
@@ -152,15 +153,18 @@ class SettingsWindow(QDialog):
 
         exclusions_group_layout.addWidget(self.exclusions_list)
         exclusions_group_layout.addLayout(exclusions_buttons_layout)
+        # --- Добавляем новую кнопку в отдельный layout ---
+        ignore_file_layout = QHBoxLayout()
+        ignore_file_layout.addWidget(self.edit_ignore_file_button)
+        exclusions_group_layout.addLayout(ignore_file_layout)
+
         self.exclusions_group.setLayout(exclusions_group_layout)
         exclusions_layout.addWidget(self.exclusions_group)
 
-        items_main_layout.addLayout(items_list_layout, 2) # Левая панель в 2 раза шире
-        items_main_layout.addLayout(exclusions_layout, 1) # Правая панель
+        items_main_layout.addLayout(items_list_layout, 2)
+        items_main_layout.addLayout(exclusions_layout, 1)
         items_group.setLayout(items_main_layout)
 
-
-        # --- Остальные секции (без изменений) ---
         general_group = QGroupBox(self.tr("Основные"))
         general_layout = QHBoxLayout()
         self.startup_switch = Switch()
@@ -193,7 +197,6 @@ class SettingsWindow(QDialog):
         main_layout.addWidget(appearance_group)
         main_layout.addWidget(self.close_button, 0, Qt.AlignmentFlag.AlignRight)
 
-        # Соединяем изменения с сохранением в конфиг
         self.startup_switch.toggled.connect(lambda c: self.config_manager.set("launch_on_startup", c))
         self.theme_combo.currentTextChanged.connect(lambda t: self.config_manager.set("theme", self._theme_display_to_key_map.get(t, "auto")))
         self.lang_combo.currentTextChanged.connect(lambda t: self.config_manager.set("language", self._lang_display_to_key_map.get(t, "auto")))
@@ -209,7 +212,6 @@ class SettingsWindow(QDialog):
             item_type = item_data.get("type")
 
             list_item = QListWidgetItem(path_str)
-            # Сохраняем весь словарь с данными прямо в элементе списка
             list_item.setData(Qt.ItemDataRole.UserRole, item_data)
 
             if item_type == "folder":
@@ -276,6 +278,7 @@ class SettingsWindow(QDialog):
             
         self.add_exclusion_button.setEnabled(is_folder_selected)
         self.remove_exclusion_button.setEnabled(is_folder_selected and len(self.exclusions_list.selectedItems()) > 0)
+        self.edit_ignore_file_button.setEnabled(is_folder_selected) # Активируем кнопку .gitignore
 
     @Slot()
     def _add_folder(self):
@@ -293,12 +296,11 @@ class SettingsWindow(QDialog):
     def _add_item_to_list(self, new_item_data: Dict):
         """Вспомогательный метод для добавления нового элемента в список."""
         new_path = Path(new_item_data["path"])
-        # Проверяем, что такого пути еще нет
         for i in range(self.items_list.count()):
             item = self.items_list.item(i)
             item_data = item.data(Qt.ItemDataRole.UserRole)
             if Path(item_data["path"]).resolve() == new_path.resolve():
-                return # Уже существует
+                return
 
         list_item = QListWidgetItem(new_item_data["path"])
         list_item.setData(Qt.ItemDataRole.UserRole, new_item_data)
@@ -315,7 +317,6 @@ class SettingsWindow(QDialog):
         for item in self.items_list.selectedItems():
             self.items_list.takeItem(self.items_list.row(item))
         self._save_changes()
-        # После удаления сбрасываем панель исключений
         self._on_item_selection_changed()
 
     @Slot()
@@ -331,9 +332,7 @@ class SettingsWindow(QDialog):
         
         if ex_path:
             ex_path_obj = Path(ex_path)
-            # Валидация: убеждаемся, что исключение находится внутри отслеживаемой папки
             if not ex_path_obj.is_relative_to(base_path):
-                # Здесь можно показать QMessageBox с предупреждением
                 return
 
             current_exclusions = folder_data.get("exclusions", [])
@@ -362,9 +361,81 @@ class SettingsWindow(QDialog):
             folder_data["exclusions"] = new_exclusions
             folder_item.setData(Qt.ItemDataRole.UserRole, folder_data)
             
-            # Обновляем UI
             self.exclusions_list.clear()
             for ex in new_exclusions:
                 self.exclusions_list.addItem(QListWidgetItem(ex))
             
             self._save_changes()
+
+    @Slot()
+    def _on_edit_ignore_file(self):
+        """
+        Создает (если нужно) и открывает файл .gitignore в папке,
+        выбранной в списке отслеживаемых элементов.
+        """
+        selected_items = self.items_list.selectedItems()
+        if not selected_items:
+            return
+        
+        item_data = selected_items[0].data(Qt.ItemDataRole.UserRole)
+        if item_data.get("type") != "folder":
+            return
+
+        folder_path = Path(item_data["path"])
+        gitignore_path = folder_path / ".gitignore"
+
+        try:
+            if not gitignore_path.exists():
+                # --- Шаблон-инструкция для .gitignore ---
+                template = (
+                    "# Это файл для исключения папок и файлов из отслеживания Undoit.\n"
+                    "# Синтаксис полностью совместим с обычным .gitignore.\n\n"
+                    "# --- Как это работает ---\n"
+                    "# 1. Каждая строка - это отдельное правило.\n"
+                    "# 2. Строки, начинающиеся с #, - это комментарии и игнорируются.\n"
+                    "# 3. Пустые строки также игнорируются.\n"
+                    "# 4. Звездочка * заменяет любое количество символов (кроме разделителя папок /).\n"
+                    "# 5. Две звездочки ** заменяют любое количество символов, включая разделители папок.\n"
+                    "# 6. Восклицательный знак ! в начале строки инвертирует правило (файл будет включен, даже если он подпадает под другое исключение).\n\n"
+                    "# 7. Этот файл действует на папку, в которой он находится, и на все вложенные папки.\n"
+                    "# --- Примеры ---\n\n"
+                    "# --- Исключение по типу файла (расширению) ---\n"
+                    "# Чтобы игнорировать все файлы с определенным расширением, используйте *.расширение\n"
+                    "# Например, чтобы игнорировать все временные файлы и логи:\n"            
+                    "# *.tmp\n"
+                    "# *.bak\n"
+                    "# *.log\n\n"
+                    "# --- Исключение папок ---\n"
+                    "# Чтобы игнорировать папку целиком, укажите ее имя со слэшем в конце.\n"
+                    "# Это самый надежный способ игнорировать папки, которые часто создаются\n"
+                    "# программами (кэш, временные сборки и т.д.).\n\n"
+                    "# node_modules/\n"
+                    "# __pycache__/\n"
+                    "# temp_files/\n\n"
+                    "# Игнорировать всю папку 'node_modules' в любой вложенности\n"
+                    "# **/node_modules\n\n"
+                    "# Игнорировать папку 'build' только в корне этой директории\n"
+                    "# /build\n\n"
+                    "# --- Исключение конкретного файла ---\n"
+                    "# Просто напишите полное имя файла.\n"
+                    "# MySecretNotes.txt\n"
+                    "# config.ini\n\n"
+                    "# Игнорировать временные файлы, создаваемые Microsoft Office\n"
+                    "# ~*.*\n\n"
+                    "# --- Создание исключений из правил (не игнорировать) ---\n"
+                    "# Если вы хотите игнорировать все файлы типа .tmp, но один из них\n"
+                    "# всё-таки нужно отслеживать, поставьте перед ним восклицательный знак !\n"
+                    "# ВАЖНО: правило-исключение должно идти ПОСЛЕ общего правила.\n\n"
+                    "# Пример: игнорировать все .tmp, кроме одного.tmp файла\n"
+                    "# *.tmp\n"
+                    "# !важный_файл.tmp\n"
+                )
+                with open(gitignore_path, "w", encoding="utf-8") as f:
+                    f.write(template)
+
+            # Открываем файл в редакторе по умолчанию
+            os.startfile(gitignore_path)
+
+        except (OSError, IOError) as e:
+            # Здесь можно показать QMessageBox с ошибкой, если потребуется
+            print(f"Error opening/creating .gitignore: {e}")
