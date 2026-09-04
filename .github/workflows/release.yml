@@ -47,7 +47,22 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'Undoit v__VERSION__'
-          releaseBody: 'См. список изменений в примечаниях к релизу.'
-          releaseDraft: true
+          releaseBody: |
+            # 🚀 Undoit v2.1.0 — Полная двуязычность / Full Bilingual (RU & EN)
+
+            ### 🇷🇺 Что нового в версии 2.1.0:
+            * **Полная локализация (Русский / Английский)**: мгновенное переключение языка интерфейса в окне «Настройки» («Система») и в системном трее Windows.
+            * **Динамический системный трей**: названия пунктов меню трея («Открыть Undoit», «Приостановить отслеживание», «Выход») и подсказка иконки на лету переключаются на выбранный язык.
+            * **Новый интерактивный промо-сайт на Flutter Web**: запущен двуязычный лендинг со сверхчувствительным сплит-диффом макетов, договоров и кода, таблицей сравнения с v1.x и ответами на частые вопросы.
+            * **Полировка стабильности**: оптимизирована автомиграция локальной базы данных SQLite и снижено потребление памяти.
+
+            ---
+
+            ### 🇬🇧 What's new in version 2.1.0:
+            * **Full Bilingual Support (Russian / English)**: dynamic language toggle in Preferences ("System" tab) and in the Windows system tray menu.
+            * **Dynamic System Tray**: menu items ("Open Undoit", "Pause Monitoring", "Exit") and tooltip reactively adapt to your chosen locale.
+            * **New Interactive Flutter Web Website**: live bilingual landing site with high-sensitivity split diff for designs, documents, and code.
+            * **Stability Enhancements**: safe SQLite database auto-migrations and minimal memory footprint (< 25 MB RAM).
+          releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
