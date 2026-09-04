@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../constants.dart';
+import '../i18n.dart';
 import '../theme.dart';
 
 class DownloadCta extends StatelessWidget {
@@ -58,10 +59,10 @@ class DownloadCta extends StatelessWidget {
                   size: 44,
                 ),
                 const SizedBox(height: 18),
-                const Text(
-                  'Начните сохранять историю прямо сейчас',
+                Text(
+                  S.ctaTitle,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.w900,
                     color: Colors.white,
@@ -71,10 +72,10 @@ class DownloadCta extends StatelessWidget {
                 const SizedBox(height: 14),
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 640),
-                  child: const Text(
-                    'Скачайте релиз Undoit 2.0.0 для Windows. Никаких аккаунтов, рекламы или подписок. Полностью бесплатный и открытый исходный код под лицензией MIT.',
+                  child: Text(
+                    S.ctaSubtitle,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 15,
                       color: Color(0xFFCBD5E1),
                       height: 1.6,
@@ -90,7 +91,7 @@ class DownloadCta extends StatelessWidget {
                     ElevatedButton.icon(
                       onPressed: () => _launchUrl(AppConstants.setupDownloadUrl),
                       icon: const Icon(Icons.download_rounded, size: 20),
-                      label: const Text('Установщик (.exe setup, 3.8 МБ)'),
+                      label: Text(S.ctaSetupBtn),
                       style: ElevatedButton.styleFrom(
                         foregroundColor: const Color(0xFF030712),
                         backgroundColor: AppColors.primary,
@@ -108,7 +109,7 @@ class DownloadCta extends StatelessWidget {
                     ElevatedButton.icon(
                       onPressed: () => _launchUrl(AppConstants.portableDownloadUrl),
                       icon: const Icon(Icons.bolt_rounded, size: 20, color: AppColors.accentAmber),
-                      label: const Text('Портабельная версия (.exe, 14 МБ)'),
+                      label: Text(S.ctaPortableBtn),
                       style: ElevatedButton.styleFrom(
                         foregroundColor: Colors.white,
                         backgroundColor: const Color(0xFF334155),
@@ -126,7 +127,7 @@ class DownloadCta extends StatelessWidget {
                     OutlinedButton.icon(
                       onPressed: () => _launchUrl(AppConstants.msiDownloadUrl),
                       icon: const Icon(Icons.business_rounded, size: 18, color: AppColors.textSecondary),
-                      label: const Text('MSI-пакет (5.3 МБ)'),
+                      label: Text(S.ctaMsiBtn),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.textSecondary,
                         side: const BorderSide(color: Color(0xFF475569)),
@@ -139,14 +140,14 @@ class DownloadCta extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 24),
-                const Row(
+                Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.check_circle_outline_rounded, size: 16, color: AppColors.accentGreen),
-                    SizedBox(width: 6),
+                    const Icon(Icons.check_circle_outline_rounded, size: 16, color: AppColors.accentGreen),
+                    const SizedBox(width: 6),
                     Text(
-                      'Совместимо с Windows 10 / Windows 11 (64-bit)',
-                      style: TextStyle(
+                      S.ctaPlatformNote,
+                      style: const TextStyle(
                         fontSize: 12,
                         color: Color(0xFF94A3B8),
                         fontWeight: FontWeight.w500,

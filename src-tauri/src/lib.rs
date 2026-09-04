@@ -21,22 +21,49 @@ use watcher::WatcherManager;
 pub struct TrayMenuItems {
     pub status: MenuItem<tauri::Wry>,
     pub toggle_pause: MenuItem<tauri::Wry>,
+    pub open: MenuItem<tauri::Wry>,
+    pub settings: MenuItem<tauri::Wry>,
+    pub add_folder: MenuItem<tauri::Wry>,
+    pub prune: MenuItem<tauri::Wry>,
+    pub quit: MenuItem<tauri::Wry>,
 }
 
 pub fn update_tray_state(app: &tauri::AppHandle, state_name: &str) {
-    let is_paused = if let Some(app_state) = app.try_state::<AppState>() {
-        app_state.watcher.is_paused()
+    let (is_paused, is_en) = if let Some(app_state) = app.try_state::<AppState>() {
+        let paused = app_state.watcher.is_paused();
+        let lang = app_state.db.get_settings().map(|s| s.language).unwrap_or_else(|_| "ru".to_string());
+        (paused, lang == "en")
     } else {
-        false
+        (false, false)
     };
 
     if let Some(menu_items) = app.try_state::<TrayMenuItems>() {
-        if is_paused {
-            let _ = menu_items.status.set_text("⏸ Undoit: Мониторинг приостановлен");
-            let _ = menu_items.toggle_pause.set_text("▶ Возобновить отслеживание");
+        if is_en {
+            if is_paused {
+                let _ = menu_items.status.set_text("⏸ Undoit: Monitoring paused");
+                let _ = menu_items.toggle_pause.set_text("▶ Resume monitoring");
+            } else {
+                let _ = menu_items.status.set_text("● Undoit: Monitoring active");
+                let _ = menu_items.toggle_pause.set_text("⏸ Pause monitoring");
+            }
+            let _ = menu_items.open.set_text("📂 Open Undoit Window");
+            let _ = menu_items.settings.set_text("⚙ Settings...");
+            let _ = menu_items.add_folder.set_text("➕ Add folder to monitor...");
+            let _ = menu_items.prune.set_text("🧹 Prune old versions");
+            let _ = menu_items.quit.set_text("❌ Quit");
         } else {
-            let _ = menu_items.status.set_text("● Undoit: Мониторинг активен");
-            let _ = menu_items.toggle_pause.set_text("⏸ Приостановить отслеживание");
+            if is_paused {
+                let _ = menu_items.status.set_text("⏸ Undoit: Мониторинг приостановлен");
+                let _ = menu_items.toggle_pause.set_text("▶ Возобновить отслеживание");
+            } else {
+                let _ = menu_items.status.set_text("● Undoit: Мониторинг активен");
+                let _ = menu_items.toggle_pause.set_text("⏸ Приостановить отслеживание");
+            }
+            let _ = menu_items.open.set_text("📂 Открыть окно Undoit");
+            let _ = menu_items.settings.set_text("⚙ Настройки...");
+            let _ = menu_items.add_folder.set_text("➕ Добавить папку в мониторинг...");
+            let _ = menu_items.prune.set_text("🧹 Очистить устаревшие версии");
+            let _ = menu_items.quit.set_text("❌ Выход");
         }
     }
 
@@ -75,18 +102,29 @@ pub fn update_tray_state(app: &tauri::AppHandle, state_name: &str) {
         let icon = icon_generator::generate_shield_icon(effective_state, fill_pct);
         let _ = tray.set_icon(Some(icon));
 
-        let status_desc = match effective_state {
-            "paused" => "Мониторинг приостановлен",
-            "saving" => "Сохранение снимка...",
-            "inactive" => "Нет элементов для отслеживания",
-            _ => "Мониторинг активен (Zstd)",
+        let status_desc = match (effective_state, is_en) {
+            ("paused", true) => "Monitoring paused",
+            ("paused", false) => "Мониторинг приостановлен",
+            ("saving", true) => "Saving snapshot...",
+            ("saving", false) => "Сохранение снимка...",
+            ("inactive", true) => "No items being tracked",
+            ("inactive", false) => "Нет элементов для отслеживания",
+            (_, true) => "Monitoring active (Zstd)",
+            (_, false) => "Мониторинг активен (Zstd)",
         };
 
         let mb = comp_bytes as f64 / (1024.0 * 1024.0);
-        let tooltip = format!(
-            "Undoit: {}\nФайлов: {} | Снимков: {}\nХранилище: {:.1} MB (экономия {:.0}%)",
-            status_desc, files_count, vers_count, mb, saved_ratio
-        );
+        let tooltip = if is_en {
+            format!(
+                "Undoit: {}\nFiles: {} | Snapshots: {}\nStorage: {:.1} MB (saved {:.0}%)",
+                status_desc, files_count, vers_count, mb, saved_ratio
+            )
+        } else {
+            format!(
+                "Undoit: {}\nФайлов: {} | Снимков: {}\nХранилище: {:.1} MB (экономия {:.0}%)",
+                status_desc, files_count, vers_count, mb, saved_ratio
+            )
+        };
         let _ = tray.set_tooltip(Some(tooltip));
     }
 }
@@ -178,6 +216,11 @@ pub fn run() {
             app.manage(TrayMenuItems {
                 status: status_i.clone(),
                 toggle_pause: pause_i.clone(),
+                open: open_i.clone(),
+                settings: settings_i.clone(),
+                add_folder: add_folder_i.clone(),
+                prune: prune_i.clone(),
+                quit: quit_i.clone(),
             });
 
             let initial_icon = icon_generator::generate_shield_icon("normal", 0.0);
@@ -303,6 +346,7 @@ pub fn run() {
             commands::get_monitoring_status,
             commands::get_settings,
             commands::save_settings,
+            commands::set_language,
             commands::prune_storage,
             commands::open_in_explorer,
             commands::get_explorer_context_menu_status,

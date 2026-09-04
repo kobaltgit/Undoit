@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../constants.dart';
+import '../i18n.dart';
 import '../theme.dart';
 
 class AppFooter extends StatelessWidget {
@@ -67,15 +68,15 @@ class AppFooter extends StatelessWidget {
                       onTap: () => _launchUrl(AppConstants.repoUrl),
                     ),
                     _FooterLink(
-                      label: 'Релизы',
+                      label: S.footerReleases,
                       onTap: () => _launchUrl(AppConstants.releaseUrl),
                     ),
                     _FooterLink(
-                      label: 'Сообщить об ошибке',
+                      label: S.footerIssues,
                       onTap: () => _launchUrl(AppConstants.issuesUrl),
                     ),
                     _FooterLink(
-                      label: 'Лицензия MIT',
+                      label: S.footerLicense,
                       onTap: () => _launchUrl(AppConstants.licenseUrl),
                     ),
                   ],
@@ -120,15 +121,15 @@ class AppFooter extends StatelessWidget {
                           onTap: () => _launchUrl(AppConstants.repoUrl),
                         ),
                         _FooterLink(
-                          label: 'Релизы',
+                          label: S.footerReleases,
                           onTap: () => _launchUrl(AppConstants.releaseUrl),
                         ),
                         _FooterLink(
-                          label: 'Сообщить об ошибке',
+                          label: S.footerIssues,
                           onTap: () => _launchUrl(AppConstants.issuesUrl),
                         ),
                         _FooterLink(
-                          label: 'Лицензия MIT',
+                          label: S.footerLicense,
                           onTap: () => _launchUrl(AppConstants.licenseUrl),
                         ),
                       ],
@@ -141,17 +142,17 @@ class AppFooter extends StatelessWidget {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 spacing: 16,
                 runSpacing: 8,
-                children: const [
+                children: [
                   Text(
-                    '© 2025–2026 Kobalt. Проект с открытым исходным кодом.',
-                    style: TextStyle(
+                    S.footerCopyright,
+                    style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textMuted,
                     ),
                   ),
                   Text(
-                    'Сделано на Flutter Web & Rust',
-                    style: TextStyle(
+                    S.isRu ? 'Сделано на Flutter Web & Rust' : 'Built with Flutter Web & Rust',
+                    style: const TextStyle(
                       fontSize: 12,
                       color: AppColors.textMuted,
                     ),

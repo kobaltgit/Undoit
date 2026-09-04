@@ -1,65 +1,58 @@
 import 'package:flutter/material.dart';
+import '../i18n.dart';
 import '../theme.dart';
 
 class FeaturesGrid extends StatelessWidget {
   const FeaturesGrid({super.key});
 
-  static const List<_FeatureItemData> _features = [
+  List<_FeatureItemData> get _features => [
     _FeatureItemData(
       icon: Icons.visibility_rounded,
       iconColor: AppColors.primary,
-      title: 'Визуальный дифф PDF и .AI',
-      description:
-          'Сравнивайте макеты Illustrator и многостраничные PDF в реальном времени. Интерактивный ползунок наглядно показывает мельчайшие сдвиги слоев и текста.',
+      title: S.feat1Title,
+      description: S.feat1Desc,
     ),
     _FeatureItemData(
       icon: Icons.description_rounded,
       iconColor: AppColors.secondary,
-      title: 'Полноценная поддержка DOCX',
-      description:
-          'Автоматически распаковывает файлы Microsoft Word, извлекает чистый текст и подсвечивает добавленные и удаленные фрагменты построчно.',
+      title: S.feat2Title,
+      description: S.feat2Desc,
     ),
     _FeatureItemData(
       icon: Icons.lock_outline_rounded,
       iconColor: AppColors.accentGreen,
-      title: '100% Офлайн & Приватность',
-      description:
-          'Ноль обращений в облако, никаких подписок или регистрации. Ваши конфиденциальные файлы, коммерческие договоры и код остаются строго на вашем диске.',
+      title: S.feat3Title,
+      description: S.feat3Desc,
     ),
     _FeatureItemData(
       icon: Icons.speed_rounded,
       iconColor: AppColors.accentAmber,
-      title: 'Zstandard + Хеши BLAKE3',
-      description:
-          'Высокоскоростное сжатие Zstd уменьшает объем хранилища в разы, а криптографический хеш BLAKE3 исключает дублирование идентичных копий.',
+      title: S.feat4Title,
+      description: S.feat4Desc,
     ),
     _FeatureItemData(
       icon: Icons.open_in_new_rounded,
       iconColor: AppColors.primary,
-      title: 'Открытие в один клик',
-      description:
-          'Кнопка «В приложении» открывает выбранную историческую версию в вашем обычном софте (Word, Photoshop, Acrobat) без риска повредить текущий файл.',
+      title: S.feat5Title,
+      description: S.feat5Desc,
     ),
     _FeatureItemData(
       icon: Icons.mouse_rounded,
       iconColor: AppColors.secondary,
-      title: 'Контекстное меню Windows',
-      description:
-          'Щелкните правой кнопкой мыши по любому файлу в Проводнике Windows и выберите «История версий Undoit» для мгновенного доступа к таймлайну.',
+      title: S.feat6Title,
+      description: S.feat6Desc,
     ),
     _FeatureItemData(
       icon: Icons.memory_rounded,
       iconColor: AppColors.accentGreen,
-      title: '< 25 МБ оперативной памяти',
-      description:
-          'Ядро на Rust и легковесный движок Tauri v2 потребляют в 8 раз меньше RAM, чем аналоги на Electron, тихо работая в системном трее.',
+      title: S.feat7Title,
+      description: S.feat7Desc,
     ),
     _FeatureItemData(
       icon: Icons.restore_rounded,
       iconColor: AppColors.accentRose,
-      title: 'Восстановление без потерь',
-      description:
-          'Откатите файл к любому моменту или экспортируйте снимок как отдельную копию. Программа всегда делает страховочный бекап перед перезаписью.',
+      title: S.feat8Title,
+      description: S.feat8Desc,
     ),
   ];
 
@@ -75,6 +68,8 @@ class FeaturesGrid extends StatelessWidget {
     } else if (isTablet) {
       crossAxisCount = 2;
     }
+
+    final features = _features;
 
     return Container(
       padding: EdgeInsets.symmetric(
@@ -93,9 +88,9 @@ class FeaturesGrid extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: AppColors.secondary.withValues(alpha: 0.3)),
                 ),
-                child: const Text(
-                  'ВОЗМОЖНОСТИ',
-                  style: TextStyle(
+                child: Text(
+                  S.featuresBadge,
+                  style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: AppColors.secondary,
@@ -104,10 +99,10 @@ class FeaturesGrid extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Всё необходимое для защиты от ошибок',
+              Text(
+                S.featuresTitle,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 34,
                   fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary,
@@ -115,10 +110,10 @@ class FeaturesGrid extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Создано для дизайнеров, инженеров, юристов и разработчиков, ценящих стабильность и скорость.',
+              Text(
+                S.featuresSubtitle,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 15,
                   color: AppColors.textSecondary,
                 ),
@@ -129,7 +124,7 @@ class FeaturesGrid extends StatelessWidget {
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: _features.length,
+                itemCount: features.length,
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: crossAxisCount,
                   crossAxisSpacing: 16,
@@ -137,7 +132,7 @@ class FeaturesGrid extends StatelessWidget {
                   childAspectRatio: isDesktop ? 1.05 : 1.25,
                 ),
                 itemBuilder: (context, index) {
-                  final item = _features[index];
+                  final item = features[index];
                   return _FeatureCard(item: item);
                 },
               ),

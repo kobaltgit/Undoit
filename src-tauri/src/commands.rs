@@ -254,8 +254,19 @@ pub fn get_settings(state: State<AppState>) -> Result<AppSettings, String> {
 }
 
 #[tauri::command]
-pub fn save_settings(settings: AppSettings, state: State<AppState>) -> Result<(), String> {
-    state.db.save_settings(&settings).map_err(|e| e.to_string())
+pub fn save_settings(settings: AppSettings, state: State<AppState>, app: tauri::AppHandle) -> Result<(), String> {
+    state.db.save_settings(&settings).map_err(|e| e.to_string())?;
+    crate::update_tray_state(&app, "normal");
+    Ok(())
+}
+
+#[tauri::command]
+pub fn set_language(lang: String, state: State<AppState>, app: tauri::AppHandle) -> Result<(), String> {
+    let mut settings = state.db.get_settings().map_err(|e| e.to_string())?;
+    settings.language = lang;
+    state.db.save_settings(&settings).map_err(|e| e.to_string())?;
+    crate::update_tray_state(&app, "normal");
+    Ok(())
 }
 
 #[tauri::command]

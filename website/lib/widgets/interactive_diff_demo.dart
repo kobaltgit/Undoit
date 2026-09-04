@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../i18n.dart';
 import '../theme.dart';
 
 class InteractiveDiffDemo extends StatefulWidget {
@@ -12,9 +13,9 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
   double _splitRatio = 0.52; // 0.0 to 1.0
   int _selectedDemoIndex = 0; // 0: PDF, 1: Illustrator, 2: Code
 
-  final List<String> _demoTitles = [
-    '📄 Договор_окончательный.pdf',
-    '🎨 Брендбук_знак.ai',
+  List<String> get _demoTitles => [
+    S.isRu ? '📄 Договор_окончательный.pdf' : '📄 Contract_Final.pdf',
+    S.isRu ? '🎨 Брендбук_знак.ai' : '🎨 Brandbook_Sign.ai',
     '⚡ engine_core.rs',
   ];
 
@@ -42,9 +43,9 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                 ),
-                child: const Text(
-                  'ИНТЕРАКТИВНОЕ ДЕМО',
-                  style: TextStyle(
+                child: Text(
+                  S.diffBadge,
+                  style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: AppColors.primary,
@@ -53,10 +54,10 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Попробуйте Visual Split-Diff прямо сейчас',
+              Text(
+                S.diffTitle,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary,
@@ -64,10 +65,10 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Потяните вертикальный ползунок влево или вправо, чтобы мгновенно увидеть правки в дизайне или верстке.',
+              Text(
+                S.diffSubtitle,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 15,
                   color: AppColors.textSecondary,
                 ),
@@ -156,7 +157,7 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
                                   const Icon(Icons.compare_arrows_rounded, size: 14, color: AppColors.primary),
                                   const SizedBox(width: 6),
                                   Text(
-                                    'Сплит: ${(_splitRatio * 100).toInt()}%',
+                                    '${S.isRu ? "Сплит:" : "Split:"} ${(_splitRatio * 100).toInt()}%',
                                     style: const TextStyle(
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
@@ -168,7 +169,7 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
                             ),
                             const Spacer(),
                             const Text(
-                              'Undoit v2.0',
+                              'Undoit v2.1',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: AppColors.textMuted,
@@ -289,9 +290,9 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
                                           borderRadius: BorderRadius.circular(6),
                                           border: Border.all(color: AppColors.surfaceBorder),
                                         ),
-                                        child: const Text(
-                                          '◄ Версия #1 (Вчера 17:40)',
-                                          style: TextStyle(
+                                        child: Text(
+                                          S.isRu ? '◄ Версия #1 (Вчера 17:40)' : '◄ Version #1 (Yesterday 17:40)',
+                                          style: const TextStyle(
                                             color: AppColors.textSecondary,
                                             fontSize: 11,
                                             fontWeight: FontWeight.w600,
@@ -309,9 +310,9 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
                                           borderRadius: BorderRadius.circular(6),
                                           border: Border.all(color: AppColors.primary.withValues(alpha: 0.5)),
                                         ),
-                                        child: const Text(
-                                          'Версия #2 (Сегодня 11:20) ►',
-                                          style: TextStyle(
+                                        child: Text(
+                                          S.isRu ? 'Версия #2 (Сегодня 11:20) ►' : 'Version #2 (Today 11:20) ►',
+                                          style: const TextStyle(
                                             color: AppColors.primary,
                                             fontSize: 11,
                                             fontWeight: FontWeight.w600,
@@ -339,7 +340,7 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
                   TextButton.icon(
                     onPressed: () => setState(() => _splitRatio = 0.02),
                     icon: const Icon(Icons.arrow_back_rounded, size: 14),
-                    label: const Text('Было (0%)'),
+                    label: Text(S.diffWas),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.textSecondary,
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -369,7 +370,7 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
                   TextButton.icon(
                     onPressed: () => setState(() => _splitRatio = 0.98),
                     icon: const Icon(Icons.arrow_forward_rounded, size: 14),
-                    label: const Text('Стало (100%)'),
+                    label: Text(S.diffNow),
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.primary,
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -389,10 +390,12 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
     switch (_selectedDemoIndex) {
       case 0: // PDF Document
         return _buildDocContent(
-          title: 'ДОГОВОР ОКАЗАНИЯ УСЛУГ',
-          status: 'Черновик (v1.0)',
+          title: S.isRu ? 'ДОГОВОР ОКАЗАНИЯ УСЛУГ' : 'SERVICE AGREEMENT',
+          status: S.isRu ? 'Черновик (v1.0)' : 'Draft (v1.0)',
           statusColor: AppColors.accentAmber,
-          clauseText: '1.2. Стоимость работ составляет 85 000 руб. Срок выполнения: 45 рабочих дней.\n1.3. Авансовый платёж: не предусмотрен.',
+          clauseText: S.isRu
+              ? '1.2. Стоимость работ составляет 85 000 руб. Срок выполнения: 45 рабочих дней.\n1.3. Авансовый платёж: не предусмотрен.'
+              : '1.2. Total project cost is \$8,500. Delivery timeline: 45 business days.\n1.3. Advance deposit: None.',
           stampOpacity: 0.0,
         );
       case 1: // Illustrator Design
@@ -412,10 +415,12 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
     switch (_selectedDemoIndex) {
       case 0: // PDF Document
         return _buildDocContent(
-          title: 'ДОГОВОР ОКАЗАНИЯ УСЛУГ',
-          status: 'Утверждён (v2.0)',
+          title: S.isRu ? 'ДОГОВОР ОКАЗАНИЯ УСЛУГ' : 'SERVICE AGREEMENT',
+          status: S.isRu ? 'Утверждён (v2.0)' : 'Approved (v2.0)',
           statusColor: AppColors.accentGreen,
-          clauseText: '1.2. Стоимость работ составляет 120 000 руб. Срок выполнения: 20 рабочих дней.\n1.3. Авансовый платёж: 50% в течение 3 банковских дней.',
+          clauseText: S.isRu
+              ? '1.2. Стоимость работ составляет 120 000 руб. Срок выполнения: 20 рабочих дней.\n1.3. Авансовый платёж: 50% в течение 3 банковских дней.'
+              : '1.2. Total project cost is \$12,000. Delivery timeline: 20 business days.\n1.3. Advance deposit: 50% due within 3 business days.',
           stampOpacity: 0.9,
         );
       case 1: // Illustrator Design
@@ -476,9 +481,9 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
                 ],
               ),
               const Divider(color: Colors.white24, height: 28),
-              const Text(
-                '1. ПРЕДМЕТ ДОГОВОРА',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white70, fontSize: 13),
+              Text(
+                S.isRu ? '1. ПРЕДМЕТ ДОГОВОРА' : '1. SCOPE OF WORK',
+                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white70, fontSize: 13),
               ),
               const SizedBox(height: 8),
               Text(
@@ -486,9 +491,11 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
                 style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.6),
               ),
               const SizedBox(height: 16),
-              const Text(
-                '2. ОТВЕТСТВЕННОСТЬ СТОРОН\nЗа нарушение сроков исполнитель выплачивает неустойку в размере 0.1% от суммы договора за каждый день просрочки.',
-                style: TextStyle(color: Colors.white60, fontSize: 12, height: 1.5),
+              Text(
+                S.isRu
+                    ? '2. ОТВЕТСТВЕННОСТЬ СТОРОН\nЗа нарушение сроков исполнитель выплачивает неустойку в размере 0.1% от суммы договора за каждый день просрочки.'
+                    : '2. TERMS & LIABILITY\nProvider shall pay a late penalty of 0.1% of contract value per business day of unjustified delay.',
+                style: const TextStyle(color: Colors.white60, fontSize: 12, height: 1.5),
               ),
             ],
           ),
@@ -506,10 +513,10 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
                       border: Border.all(color: AppColors.accentGreen, width: 2.5),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Text(
-                      'СОГЛАСОВАНО\nUNDOIТ 2.0',
+                    child: Text(
+                      S.isRu ? 'СОГЛАСОВАНО\nUNDOIТ 2.1' : 'APPROVED\nUNDOIТ 2.1',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: AppColors.accentGreen,
                         fontWeight: FontWeight.w900,
                         fontSize: 12,
@@ -569,7 +576,9 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
             ),
             const SizedBox(height: 6),
             Text(
-              showGrid ? 'Векторные направляющие включены' : 'Отрендерено с оптимизацией кривых',
+              showGrid
+                  ? (S.isRu ? 'Векторные направляющие включены' : 'Vector guides enabled')
+                  : (S.isRu ? 'Отрендерено с оптимизацией кривых' : 'Rendered with curve optimization'),
               style: const TextStyle(fontSize: 12, color: Colors.white54),
             ),
           ],
@@ -592,8 +601,12 @@ class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
           const SizedBox(height: 12),
           Text(
             isOld
-                ? 'pub fn save_version(data: &[u8]) -> Result<String> {\n    // Старый медленный алгоритм\n    let hash = md5::compute(data);\n    let compressed = gzip::compress(data)?;\n    fs::write(path, compressed)?;\n    Ok(hash)\n}'
-                : 'pub fn save_version(data: &[u8]) -> Result<String> {\n    // Undoit 2.0: BLAKE3 + Zstandard\n    let hash = blake3::hash(data).to_hex();\n    let compressed = zstd::encode_all(data, 3)?;\n    db::insert_version(&hash, &compressed)?;\n    Ok(hash.to_string())\n}',
+                ? (S.isRu
+                    ? 'pub fn save_version(data: &[u8]) -> Result<String> {\n    // Старый медленный алгоритм\n    let hash = md5::compute(data);\n    let compressed = gzip::compress(data)?;\n    fs::write(path, compressed)?;\n    Ok(hash)\n}'
+                    : 'pub fn save_version(data: &[u8]) -> Result<String> {\n    // Legacy slow algorithm\n    let hash = md5::compute(data);\n    let compressed = gzip::compress(data)?;\n    fs::write(path, compressed)?;\n    Ok(hash)\n}')
+                : (S.isRu
+                    ? 'pub fn save_version(data: &[u8]) -> Result<String> {\n    // Undoit 2.1: BLAKE3 + Zstandard\n    let hash = blake3::hash(data).to_hex();\n    let compressed = zstd::encode_all(data, 3)?;\n    db::insert_version(&hash, &compressed)?;\n    Ok(hash.to_string())\n}'
+                    : 'pub fn save_version(data: &[u8]) -> Result<String> {\n    // Undoit 2.1: BLAKE3 + Zstandard\n    let hash = blake3::hash(data).to_hex();\n    let compressed = zstd::encode_all(data, 3)?;\n    db::insert_version(&hash, &compressed)?;\n    Ok(hash.to_string())\n}'),
             style: TextStyle(
               color: isOld ? const Color(0xFFF87171) : const Color(0xFF4ADE80),
               fontSize: 13,

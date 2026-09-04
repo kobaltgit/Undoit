@@ -51,6 +51,7 @@ pub struct AppSettings {
     pub theme: String,
     pub autostart: bool,
     pub minimize_to_tray: bool,
+    pub language: String,
 }
 
 impl Default for AppSettings {
@@ -77,6 +78,7 @@ impl Default for AppSettings {
             theme: "dark".to_string(),
             autostart: false,
             minimize_to_tray: true,
+            language: "ru".to_string(),
         }
     }
 }
@@ -179,6 +181,7 @@ impl Database {
                 "theme" => defaults.theme = val,
                 "autostart" => defaults.autostart = val == "true" || val == "1",
                 "minimize_to_tray" => defaults.minimize_to_tray = val == "true" || val == "1",
+                "language" => defaults.language = val,
                 _ => {}
             }
         }
@@ -200,6 +203,7 @@ impl Database {
         stmt.execute(params!["theme", settings.theme])?;
         stmt.execute(params!["autostart", settings.autostart.to_string()])?;
         stmt.execute(params!["minimize_to_tray", settings.minimize_to_tray.to_string()])?;
+        stmt.execute(params!["language", settings.language])?;
 
         Ok(())
     }

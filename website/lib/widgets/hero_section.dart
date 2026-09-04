@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../constants.dart';
+import '../i18n.dart';
 import '../theme.dart';
 
 class HeroSection extends StatelessWidget {
@@ -58,10 +59,10 @@ class HeroSection extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    const Flexible(
+                    Flexible(
                       child: Text(
-                        'Undoit 2.0.0 Релиз доступен — Перезапуск на Rust & Tauri',
-                        style: TextStyle(
+                        S.heroBadge,
+                        style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
@@ -76,7 +77,7 @@ class HeroSection extends StatelessWidget {
 
               // Hero Heading
               Text(
-                'Локальная машина времени\nдля ваших файлов на Windows',
+                S.heroTitle,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: isDesktop ? 52 : 32,
@@ -92,7 +93,7 @@ class HeroSection extends StatelessWidget {
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 760),
                 child: Text(
-                  'Невидимо сохраняет историю каждого изменения в реальном времени. Возвращайтесь к любой секунде работы, сравнивайте текст документов Word, код и находите визуальные отличия в PDF и макетах Illustrator прямо на экране.',
+                  S.heroSubtitle,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: isDesktop ? 18 : 15,
@@ -113,7 +114,7 @@ class HeroSection extends StatelessWidget {
                   ElevatedButton.icon(
                     onPressed: () => _launchUrl(AppConstants.setupDownloadUrl),
                     icon: const Icon(Icons.download_rounded, size: 20),
-                    label: const Text('Скачать установщик (.exe, 3.8 МБ)'),
+                    label: Text(S.isRu ? 'Скачать установщик (.exe, 3.8 МБ)' : 'Download Installer (.exe, 3.8 MB)'),
                     style: ElevatedButton.styleFrom(
                       foregroundColor: const Color(0xFF030712),
                       backgroundColor: AppColors.primary,
@@ -129,7 +130,7 @@ class HeroSection extends StatelessWidget {
                   OutlinedButton.icon(
                     onPressed: () => _launchUrl(AppConstants.portableDownloadUrl),
                     icon: const Icon(Icons.flash_on_rounded, size: 18, color: AppColors.secondary),
-                    label: const Text('Портабельная версия (.exe)'),
+                    label: Text(S.isRu ? 'Портабельная версия (.exe)' : 'Portable Build (.exe)'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.textPrimary,
                       side: const BorderSide(color: AppColors.surfaceBorderHover),
@@ -145,7 +146,7 @@ class HeroSection extends StatelessWidget {
                   OutlinedButton.icon(
                     onPressed: () => _launchUrl(AppConstants.repoUrl),
                     icon: const Icon(Icons.code_rounded, size: 18, color: AppColors.textSecondary),
-                    label: const Text('Исходный код'),
+                    label: Text(S.isRu ? 'Исходный код' : 'Source Code'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.textSecondary,
                       side: const BorderSide(color: AppColors.surfaceBorder),
@@ -171,12 +172,12 @@ class HeroSection extends StatelessWidget {
                   spacing: isDesktop ? 48 : 24,
                   runSpacing: 16,
                   alignment: WrapAlignment.center,
-                  children: const [
-                    _MetricItem(value: '< 25 МБ', label: 'ОЗУ в фоне'),
-                    _MetricItem(value: '3.8 МБ', label: 'Размер инсталлятора'),
-                    _MetricItem(value: '100% Offline', label: 'Данные только у вас'),
-                    _MetricItem(value: 'Zstandard', label: 'Мгновенное сжатие'),
-                    _MetricItem(value: 'Rust Core', label: 'Tauri v2 + SQLite'),
+                  children: [
+                    _MetricItem(value: S.heroStatRam, label: S.heroStatRamLabel),
+                    _MetricItem(value: S.heroStatSpeed, label: S.heroStatSpeedLabel),
+                    _MetricItem(value: S.heroStatPrivacy, label: S.heroStatPrivacyLabel),
+                    _MetricItem(value: S.heroStatZstd, label: S.heroStatZstdLabel),
+                    _MetricItem(value: 'Rust Core', label: S.isRu ? 'Tauri v2 + SQLite' : 'Tauri v2 + SQLite'),
                   ],
                 ),
               ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'i18n.dart';
 import 'theme.dart';
 import 'widgets/navbar.dart';
 import 'widgets/hero_section.dart';
@@ -20,11 +21,18 @@ class UndoitWebsiteApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Undoit — Локальная машина времени для ваших файлов',
-      debugShowCheckedModeBanner: false,
-      theme: buildAppTheme(),
-      home: const LandingPage(),
+    return ValueListenableBuilder<AppLang>(
+      valueListenable: currentLang,
+      builder: (context, lang, _) {
+        return MaterialApp(
+          title: lang == AppLang.ru
+              ? 'Undoit — Локальная машина времени для ваших файлов'
+              : 'Undoit — Local Time Machine for Your Files',
+          debugShowCheckedModeBanner: false,
+          theme: buildAppTheme(),
+          home: const LandingPage(),
+        );
+      },
     );
   }
 }

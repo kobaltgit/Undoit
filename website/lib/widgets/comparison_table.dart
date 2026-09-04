@@ -1,62 +1,63 @@
 import 'package:flutter/material.dart';
+import '../i18n.dart';
 import '../theme.dart';
 
 class ComparisonTable extends StatelessWidget {
   const ComparisonTable({super.key});
 
-  static const List<_ComparisonRowData> _rows = [
+  List<_ComparisonRowData> get _rows => [
     _ComparisonRowData(
-      metric: 'Технологический стек',
-      v1: 'Python 3 + PySide6 (Qt)',
-      v2: 'Rust + Tauri v2 + SvelteKit',
+      metric: S.compRow1Metric,
+      v1: S.compRow1V1,
+      v2: S.compRow1V2,
       isHighlight: false,
     ),
     _ComparisonRowData(
-      metric: 'Потребление ОЗУ в фоне',
-      v1: '~150 – 200 МБ',
-      v2: '15 – 25 МБ (в 8 раз меньше)',
+      metric: S.compRow2Metric,
+      v1: S.compRow2V1,
+      v2: S.compRow2V2,
       isHighlight: true,
     ),
     _ComparisonRowData(
-      metric: 'Размер установщика',
-      v1: '~80 МБ',
-      v2: '3.86 МБ (NSIS setup)',
+      metric: S.compRow3Metric,
+      v1: S.compRow3V1,
+      v2: S.compRow3V2,
       isHighlight: true,
     ),
     _ComparisonRowData(
-      metric: 'Сжатие версий на диске',
-      v1: 'Стандартный zip',
-      v2: 'Zstandard (Zstd) максимальной скорости',
+      metric: S.compRow4Metric,
+      v1: S.compRow4V1,
+      v2: S.compRow4V2,
       isHighlight: false,
     ),
     _ComparisonRowData(
-      metric: 'Дедупликация файлов',
-      v1: 'Базовая проверка размера',
-      v2: 'Криптографический хеш BLAKE3',
+      metric: S.compRow5Metric,
+      v1: S.compRow5V1,
+      v2: S.compRow5V2,
       isHighlight: false,
     ),
     _ComparisonRowData(
-      metric: 'Визуальный дифф PDF и .AI',
-      v1: '❌ Отсутствует',
-      v2: '✅ Сплит-слайдер и предпросмотр страниц',
+      metric: S.compRow6Metric,
+      v1: S.compRow6V1,
+      v2: S.compRow6V2,
       isHighlight: true,
     ),
     _ComparisonRowData(
-      metric: 'Сравнение документов DOCX',
-      v1: '❌ Бинарный файл',
-      v2: '✅ Извлечение текста и построчный дифф',
+      metric: S.compRow7Metric,
+      v1: S.compRow7V1,
+      v2: S.compRow7V2,
       isHighlight: true,
     ),
     _ComparisonRowData(
-      metric: 'Открытие во внешнем софте',
-      v1: '❌ Только восстановить',
-      v2: '✅ Кнопка «В приложении» (Word, AI, etc.)',
+      metric: S.compRow8Metric,
+      v1: S.compRow8V1,
+      v2: S.compRow8V2,
       isHighlight: false,
     ),
     _ComparisonRowData(
-      metric: 'Холодный старт приложения',
-      v1: '3 – 5 секунд',
-      v2: '< 400 миллисекунд',
+      metric: S.compRow9Metric,
+      v1: S.compRow9V1,
+      v2: S.compRow9V2,
       isHighlight: true,
     ),
   ];
@@ -65,6 +66,7 @@ class ComparisonTable extends StatelessWidget {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isDesktop = screenWidth > 860;
+    final rows = _rows;
 
     return Container(
       padding: EdgeInsets.symmetric(
@@ -83,9 +85,9 @@ class ComparisonTable extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: AppColors.accentGreen.withValues(alpha: 0.3)),
                 ),
-                child: const Text(
-                  'ЭВОЛЮЦИЯ ПРОЕКТА',
-                  style: TextStyle(
+                child: Text(
+                  S.compBadge,
+                  style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: AppColors.accentGreen,
@@ -94,10 +96,10 @@ class ComparisonTable extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Undoit 1.0 vs Undoit 2.0',
+              Text(
+                S.compTitle,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 34,
                   fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary,
@@ -105,10 +107,10 @@ class ComparisonTable extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Почему переход на Rust и Tauri сделал приложение эталоном эффективности для Windows.',
+              Text(
+                S.compSubtitle,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 15,
                   color: AppColors.textSecondary,
                 ),
@@ -140,30 +142,30 @@ class ComparisonTable extends StatelessWidget {
                         columnSpacing: 24,
                         dataRowMinHeight: 52,
                         dataRowMaxHeight: 56,
-                        columns: const [
+                        columns: [
                           DataColumn(
                             label: Text(
-                              'Характеристика',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white70),
+                              S.compMetric,
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white70),
                             ),
                           ),
                           DataColumn(
                             label: Text(
-                              'Undoit v1.0 (Python)',
-                              style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.textMuted),
+                              S.compLegacy,
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textMuted),
                             ),
                           ),
                           DataColumn(
                             label: Text(
-                              'Undoit v2.0 (Rust + Tauri)',
-                              style: TextStyle(
+                              S.compCurrent,
+                              style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: AppColors.primary,
                               ),
                             ),
                           ),
                         ],
-                        rows: _rows.map((row) {
+                        rows: rows.map((row) {
                           return DataRow(
                             color: row.isHighlight
                                 ? WidgetStateProperty.all(AppColors.primary.withValues(alpha: 0.04))

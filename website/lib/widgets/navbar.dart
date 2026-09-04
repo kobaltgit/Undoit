@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../constants.dart';
+import '../i18n.dart';
 import '../theme.dart';
 
 class NavBar extends StatelessWidget {
@@ -88,7 +89,7 @@ class NavBar extends StatelessWidget {
                       ),
                     ),
                     child: const Text(
-                      'v2.0',
+                      'v2.1',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -108,16 +109,43 @@ class NavBar extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _NavLink(title: 'Возможности', onTap: onFeaturesTap),
-                        _NavLink(title: 'Сплит-дифф', onTap: onDiffDemoTap),
-                        _NavLink(title: 'Сравнение', onTap: onComparisonTap),
-                        _NavLink(title: 'FAQ', onTap: onFaqTap),
+                        _NavLink(title: S.navFeatures, onTap: onFeaturesTap),
+                        _NavLink(title: S.navDiffDemo, onTap: onDiffDemoTap),
+                        _NavLink(title: S.navComparison, onTap: onComparisonTap),
+                        _NavLink(title: S.navFaq, onTap: onFaqTap),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
               ],
+
+              // Language Switcher (RU / EN)
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.surfaceBorder),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _LangButton(
+                      label: 'RU',
+                      isActive: S.isRu,
+                      onTap: () => setAppLanguage(AppLang.ru),
+                    ),
+                    const SizedBox(width: 2),
+                    _LangButton(
+                      label: 'EN',
+                      isActive: !S.isRu,
+                      onTap: () => setAppLanguage(AppLang.en),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
 
               // GitHub Star Button
               OutlinedButton.icon(
@@ -138,7 +166,7 @@ class NavBar extends StatelessWidget {
               ElevatedButton.icon(
                 onPressed: onDownloadTap,
                 icon: const Icon(Icons.download_rounded, size: 18),
-                label: const Text('Скачать'),
+                label: Text(S.navDownload),
                 style: ElevatedButton.styleFrom(
                   foregroundColor: const Color(0xFF030712),
                   backgroundColor: AppColors.primary,
@@ -149,6 +177,42 @@ class NavBar extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LangButton extends StatelessWidget {
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _LangButton({
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: isActive ? AppColors.primary : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: isActive ? const Color(0xFF030712) : AppColors.textMuted,
           ),
         ),
       ),

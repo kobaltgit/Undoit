@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../i18n.dart';
 import '../theme.dart';
 
 class SupportedFormats extends StatelessWidget {
@@ -19,10 +20,10 @@ class SupportedFormats extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 1100),
           child: Column(
             children: [
-              const Text(
-                'Поддерживает любые ваши файлы',
+              Text(
+                S.formatsTitle,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary,
@@ -30,56 +31,56 @@ class SupportedFormats extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              const Text(
-                'Undoit сохраняет историю любых расширений, а для ключевых форматов предлагает интеллектуальный просмотр.',
+              Text(
+                S.formatsSubtitle,
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 15, color: AppColors.textSecondary),
+                style: const TextStyle(fontSize: 15, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 36),
               Wrap(
                 spacing: 16,
                 runSpacing: 16,
                 alignment: WrapAlignment.center,
-                children: const [
+                children: [
                   _FormatPill(
                     icon: Icons.picture_as_pdf_rounded,
-                    title: 'PDF Документы',
+                    title: S.fmtPdf,
                     exts: '.pdf',
                     badge: 'Visual Diff',
                     badgeColor: AppColors.primary,
                   ),
                   _FormatPill(
                     icon: Icons.brush_rounded,
-                    title: 'Adobe Illustrator',
+                    title: S.fmtAi,
                     exts: '.ai',
                     badge: 'XMP Preview',
                     badgeColor: AppColors.secondary,
                   ),
                   _FormatPill(
                     icon: Icons.article_rounded,
-                    title: 'Microsoft Word',
+                    title: S.fmtDocx,
                     exts: '.docx',
                     badge: 'Text Extractor',
                     badgeColor: AppColors.accentGreen,
                   ),
                   _FormatPill(
                     icon: Icons.code_rounded,
-                    title: 'Исходный код',
+                    title: S.fmtCode,
                     exts: '.rs, .py, .ts, .js, .json, .md',
                     badge: 'Line Diff',
                     badgeColor: AppColors.accentAmber,
                   ),
                   _FormatPill(
                     icon: Icons.image_rounded,
-                    title: 'Растровая графика',
+                    title: S.fmtImages,
                     exts: '.png, .jpg, .svg, .webp',
                     badge: 'Visual Compare',
                     badgeColor: AppColors.primary,
                   ),
                   _FormatPill(
                     icon: Icons.folder_zip_rounded,
-                    title: 'Любые бинарники',
-                    exts: 'Архивы, базы, 3D модели',
+                    title: S.fmtAny,
+                    exts: S.fmtAnyExts,
                     badge: 'Zstd Snapshot',
                     badgeColor: AppColors.textMuted,
                   ),

@@ -1,41 +1,38 @@
 import 'package:flutter/material.dart';
+import '../i18n.dart';
 import '../theme.dart';
 
 class FaqSection extends StatelessWidget {
   const FaqSection({super.key});
 
-  static const List<_FaqItemData> _items = [
-    _FaqItemData(
-      question: 'Как Undoit отслеживает файлы?',
-      answer:
-          'Приложение использует системный перехват событий файловой системы Windows на базе легковесного движка на Rust. В момент, когда вы нажимаете Ctrl+S в любой программе (Word, VS Code, Illustrator), Undoit фиксирует изменение, проверяет хеш BLAKE3 и сжимает снимок в локальную базу данных.',
-    ),
-    _FaqItemData(
-      question: 'Где хранятся мои данные и есть ли облачная синхронизация?',
-      answer:
-          'Все данные хранятся исключительно на вашем жестком диске в локальной базе данных SQLite. Undoit на 100% автономен, работает без подключения к интернету и принципиально не отправляет ваши конфиденциальные документы ни на какие сторонние серверы.',
-    ),
-    _FaqItemData(
-      question: 'Не заполнит ли история версий весь свободный диск?',
-      answer:
-          'Нет. Во-первых, файлы сжимаются эффективным алгоритмом Zstandard (Zstd). Во-вторых, встроенный механизм дедупликации хешей BLAKE3 гарантирует, что если файл не изменился по содержимому, новая копия на диск не запишется. Также в настройках можно задать автоочистку версий старше N дней.',
-    ),
-    _FaqItemData(
-      question: 'Чем отличаются установщик (.exe setup) и портабельная версия?',
-      answer:
-          'Установщик автоматически прописывает приложение в автозагрузку Windows, создает ярлыки в меню «Пуск» и регистрирует пункт «История версий Undoit» в контекстном меню Проводника. Портабельная версия запускается в один клик без инсталляции и прав администратора — идеально для запуска с флешки.',
-    ),
-    _FaqItemData(
-      question: 'Что произойдет, если я закрою окно программы?',
-      answer:
-          'При закрытии окна Undoit не прекращает работу, а бесшумно сворачивается в системный трей возле часов, продолжая защищать ваши документы. Из меню трея можно в один клик временно приостановить отслеживание или снова развернуть окно истории.',
-    ),
-  ];
+  List<_FaqItemData> get _items => [
+        _FaqItemData(
+          question: S.faq1Q,
+          answer: S.faq1A,
+        ),
+        _FaqItemData(
+          question: S.faq2Q,
+          answer: S.faq2A,
+        ),
+        _FaqItemData(
+          question: S.faq3Q,
+          answer: S.faq3A,
+        ),
+        _FaqItemData(
+          question: S.faq4Q,
+          answer: S.faq4A,
+        ),
+        _FaqItemData(
+          question: S.faq5Q,
+          answer: S.faq5A,
+        ),
+      ];
 
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isDesktop = screenWidth > 860;
+    final items = _items;
 
     return Container(
       padding: EdgeInsets.symmetric(
@@ -54,9 +51,9 @@ class FaqSection extends StatelessWidget {
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                 ),
-                child: const Text(
-                  'ВОПРОСЫ И ОТВЕТЫ',
-                  style: TextStyle(
+                child: Text(
+                  S.faqBadge,
+                  style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: AppColors.primary,
@@ -65,10 +62,10 @@ class FaqSection extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              const Text(
-                'Часто задаваемые вопросы',
+              Text(
+                S.faqTitle,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary,
@@ -81,10 +78,10 @@ class FaqSection extends StatelessWidget {
               ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: _items.length,
+                itemCount: items.length,
                 separatorBuilder: (context, index) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
-                  final item = _items[index];
+                  final item = items[index];
                   return Material(
                     color: AppColors.surface,
                     shape: RoundedRectangleBorder(

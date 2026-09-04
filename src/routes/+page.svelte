@@ -10,6 +10,7 @@
     isDocx,
     renderPdfToDataUrl
   } from "$lib/pdfRenderer";
+  import { t, locale, setLocale, type Locale } from "$lib/i18n";
 
   interface TrackedFile {
     id: number;
@@ -67,6 +68,7 @@
     theme: string;
     autostart: boolean;
     minimize_to_tray: boolean;
+    language: string;
   }
 
   let files = $state<TrackedFile[]>([]);
@@ -112,14 +114,15 @@
     theme: "dark",
     autostart: false,
     minimize_to_tray: true,
+    language: "ru",
   });
 
   async function toggleExplorerContextMenu() {
     try {
       explorerContextMenu = await invoke<boolean>("set_explorer_context_menu", { enabled: explorerContextMenu });
-      showToast(explorerContextMenu ? "Пункт в контекстном меню Проводника добавлен" : "Пункт удален из Проводника");
+      showToast(explorerContextMenu ? $t("contextMenuAdded") : $t("contextMenuRemoved"));
     } catch (e) {
-      alert("Ошибка настройки контекстного меню: " + e);
+      alert($t("contextMenuError") + ": " + e);
     }
   }
 
@@ -161,12 +164,12 @@
       const diffHours = Math.floor(diffMin / 60);
       const diffDays = Math.floor(diffHours / 24);
 
-      if (diffSec < 60) return "только что";
-      if (diffMin < 60) return `${diffMin} мин. назад`;
-      if (diffHours < 24) return `${diffHours} ч. назад`;
-      if (diffDays === 1) return "вчера";
-      if (diffDays < 7) return `${diffDays} дн. назад`;
-      return date.toLocaleDateString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+      if (diffSec < 60) return $t("timeAgoJustNow");
+      if (diffMin < 60) return `${diffMin} ${$t("timeAgoMinutes")}`;
+      if (diffHours < 24) return `${diffHours} ${$t("timeAgoHours")}`;
+      if (diffDays === 1) return $t("timeAgoYesterday");
+      if (diffDays < 7) return `${diffDays} ${$t("timeAgoDays")}`;
+      return date.toLocaleDateString($locale === "ru" ? "ru-RU" : "en-US", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
     } catch {
       return isoStr;
     }
@@ -199,6 +202,9 @@
   async function loadSettings() {
     try {
       settings = await invoke<AppSettings>("get_settings");
+      if (settings.language === "ru" || settings.language === "en") {
+        setLocale(settings.language as Locale);
+      }
       // Check system autostart state
       try {
         const autostartActive = await isAutostartEnabled();
@@ -209,6 +215,18 @@
       applyTheme(settings.theme);
     } catch (e) {
       console.error(e);
+    }
+  }
+
+  async function handleLanguageChange() {
+    if (settings.language === "ru" || settings.language === "en") {
+      setLocale(settings.language as Locale);
+    }
+    await saveAppSettings();
+    try {
+      await invoke("set_language", { lang: settings.language });
+    } catch (e) {
+      console.warn("Tray language sync failed:", e);
     }
   }
 
@@ -226,9 +244,9 @@
         console.warn("Autostart update failed:", e);
       }
       applyTheme(settings.theme);
-      showToast("Настройки успешно сохранены");
+      showToast($t("settingsSaved"));
     } catch (e) {
-      alert("Ошибка сохранения настроек: " + e);
+      alert($t("settingsSaveError") + ": " + e);
     }
   }
 
@@ -358,19 +376,22 @@
 
   async function restoreSelectedVersion() {
     if (!currentVersion || !selectedFile) return;
-    if (!confirm(`Восстановить файл "${selectedFile.filename}" до состояния от ${formatRelativeDate(currentVersion.timestamp)}?\n\nТекущий файл перед заменой будет автоматически сохранен в историю.`)) {
+    const confirmMsg = $locale === "ru"
+      ? `Восстановить файл "${selectedFile.filename}" до состояния от ${formatRelativeDate(currentVersion.timestamp)}?\n\nТекущий файл перед заменой будет автоматически сохранен в историю.`
+      : `Restore file "${selectedFile.filename}" to state from ${formatRelativeDate(currentVersion.timestamp)}?\n\nThe current file will be backed up automatically before replacement.`;
+    if (!confirm(confirmMsg)) {
       return;
     }
 
     isRestoring = true;
     try {
       await invoke("restore_version", { versionId: currentVersion.id });
-      showToast(`Файл "${selectedFile.filename}" успешно восстановлен!`);
+      showToast($t("restoreSuccess"));
       await loadFiles();
       await loadStats();
       if (selectedFile) await selectFile(selectedFile);
     } catch (e) {
-      alert("Ошибка восстановления: " + e);
+      alert($t("restoreError") + ": " + e);
     } finally {
       isRestoring = false;
     }
@@ -382,7 +403,9 @@
     try {
       const selectedPath = await save({
         defaultPath: selectedFile.filename,
-        title: `Сохранить снимок "${selectedFile.filename}" как...`
+        title: $locale === "ru"
+          ? `Сохранить снимок "${selectedFile.filename}" как...`
+          : `Save snapshot "${selectedFile.filename}" as...`
       });
 
       if (selectedPath) {
@@ -390,10 +413,10 @@
           versionId: currentVersion.id,
           targetPath: selectedPath
         });
-        showToast("Снимок успешно сохранен в файл");
+        showToast($locale === "ru" ? "Снимок успешно сохранен в файл" : "Snapshot saved to file successfully");
       }
     } catch (e) {
-      alert("Ошибка сохранения: " + e);
+      alert(($locale === "ru" ? "Ошибка сохранения: " : "Save error: ") + e);
     }
   }
 
@@ -402,13 +425,16 @@
     try {
       await invoke("open_in_explorer", { path: selectedFile.original_path });
     } catch (e) {
-      alert("Не удалось открыть в проводнике: " + e);
+      alert(($locale === "ru" ? "Не удалось открыть в проводнике: " : "Failed to open in Explorer: ") + e);
     }
   }
 
   async function deleteCurrentFileFromTracking() {
     if (!selectedFile) return;
-    if (!confirm(`Удалить файл "${selectedFile.filename}" и все его ${selectedFile.version_count} сохраненных версий из истории Undoit?`)) {
+    const confirmMsg = $locale === "ru"
+      ? `Удалить файл "${selectedFile.filename}" и все его ${selectedFile.version_count} сохраненных версий из истории Undoit?`
+      : `Remove file "${selectedFile.filename}" and all its ${selectedFile.version_count} saved versions from Undoit history?`;
+    if (!confirm(confirmMsg)) {
       return;
     }
 
@@ -420,16 +446,16 @@
       textContent = "";
       await loadFiles();
       await loadStats();
-      showToast("Файл удален из истории");
+      showToast($locale === "ru" ? "Файл удален из истории" : "File removed from history");
     } catch (e) {
-      alert("Ошибка удаления: " + e);
+      alert(($locale === "ru" ? "Ошибка удаления: " : "Delete error: ") + e);
     }
   }
 
   async function togglePause() {
     try {
       isPaused = await invoke<boolean>("toggle_pause_monitoring");
-      showToast(isPaused ? "Мониторинг файлов приостановлен" : "Мониторинг возобновлен");
+      showToast(isPaused ? $t("monitoringPaused") : $t("monitoringActive"));
     } catch (e) {
       console.error(e);
     }
@@ -440,7 +466,7 @@
       const selected = await open({
         directory: true,
         multiple: false,
-        title: "Выберите папку для отслеживания Undoit"
+        title: $locale === "ru" ? "Выберите папку для отслеживания Undoit" : "Select folder to watch with Undoit"
       });
 
       if (selected && typeof selected === "string") {
@@ -460,18 +486,21 @@
       await loadWatchedFolders();
       await loadFiles();
       await loadStats();
-      showToast("Папка добавлена в мониторинг");
+      showToast($t("folderAdded"));
     } catch (e) {
-      alert("Ошибка добавления папки: " + e);
+      alert(($locale === "ru" ? "Ошибка добавления папки: " : "Failed to add folder: ") + e);
     }
   }
 
   async function removeFolder(id: number, path: string) {
-    if (!confirm(`Перестать отслеживать изменения в папке "${path}"?`)) return;
+    const confirmMsg = $locale === "ru"
+      ? `Перестать отслеживать изменения в папке "${path}"?`
+      : `Stop watching changes in folder "${path}"?`;
+    if (!confirm(confirmMsg)) return;
     try {
       await invoke("remove_watched_folder", { id, path });
       await loadWatchedFolders();
-      showToast("Папка удалена из списка мониторинга");
+      showToast($t("folderRemoved"));
     } catch (e) {
       console.error(e);
     }
@@ -498,9 +527,11 @@
       const res: any = await invoke("prune_storage");
       await loadStats();
       await loadFiles();
-      showToast(`Очистка завершена: удалено ${res.deleted_versions} снимков и ${res.deleted_objects} файлов`);
+      showToast($locale === "ru"
+        ? `Очистка завершена: удалено ${res.deleted_versions} снимков и ${res.deleted_objects} файлов`
+        : `Cleanup completed: deleted ${res.deleted_versions} snapshots and ${res.deleted_objects} blobs`);
     } catch (e) {
-      alert("Ошибка очистки: " + e);
+      alert(($locale === "ru" ? "Ошибка очистки: " : "Cleanup error: ") + e);
     } finally {
       isPruning = false;
     }
@@ -550,13 +581,13 @@
 
     const unlisten4 = listen<boolean>("monitoring-status-changed", (event) => {
       isPaused = Boolean(event.payload);
-      showToast(isPaused ? "Мониторинг приостановлен" : "Мониторинг возобновлен");
+      showToast(isPaused ? $t("monitoringPaused") : $t("monitoringActive"));
     });
 
     const unlisten5 = listen("storage-pruned", () => {
       loadStats();
       loadFiles();
-      showToast("Хранилище очищено из трея");
+      showToast($t("pruneSuccess"));
     });
 
     const unlisten6 = listen("open-file-path", async (event: any) => {
@@ -620,12 +651,12 @@
         </svg>
         <div class="logo-text">
           <span class="logo-title">Undoit</span>
-          <span class="logo-badge">v2.0</span>
+          <span class="logo-badge">v2.1</span>
         </div>
       </div>
-      <div class="status-indicator" class:paused={isPaused} title={isPaused ? "Мониторинг на паузе" : "Мониторинг активен"}>
+      <div class="status-indicator" class:paused={isPaused} title={isPaused ? $t("monitoringPaused") : $t("monitoringActive")}>
         <span class="status-dot"></span>
-        <span class="status-label">{isPaused ? "Пауза" : "Активен"}</span>
+        <span class="status-label">{isPaused ? $t("pause") : ($locale === 'ru' ? "Активен" : "Active")}</span>
       </div>
     </div>
 
@@ -633,7 +664,7 @@
     <div class="search-container">
       <input
         type="text"
-        placeholder="Поиск файлов..."
+        placeholder={$t("searchPlaceholder")}
         bind:value={searchQuery}
         class="search-input"
       />
@@ -643,8 +674,8 @@
     <div class="files-list">
       {#if filteredFiles.length === 0}
         <div class="empty-files">
-          <p>Нет отслеживаемых файлов</p>
-          <small>Добавьте папку в Настройках ⚙</small>
+          <p>{$t("noFilesFound")}</p>
+          <small>{$locale === 'ru' ? 'Добавьте папку в Настройках ⚙' : 'Add a folder in Settings ⚙'}</small>
         </div>
       {:else}
         {#each filteredFiles as file}
@@ -671,7 +702,7 @@
               <span class="file-name">{file.filename}</span>
               <span class="file-time">{formatRelativeDate(file.updated_at)}</span>
             </div>
-            <div class="version-badge" title="Сохраненных снимков">
+            <div class="version-badge" title={$t("fileVersions")}>
               {file.version_count}
             </div>
           </button>
@@ -681,11 +712,11 @@
 
     <!-- Sidebar footer -->
     <div class="sidebar-footer">
-      <button class="footer-btn" onclick={togglePause} title={isPaused ? "Возобновить" : "Приостановить"}>
-        {isPaused ? "▶ Возобновить" : "⏸ Пауза"}
+      <button class="footer-btn" onclick={togglePause} title={isPaused ? $t("resume") : $t("pause")}>
+        {isPaused ? `▶ ${$t("resume")}` : `⏸ ${$t("pause")}`}
       </button>
-      <button class="footer-btn settings-btn" onclick={() => showSettings = true} title="Настройки">
-        ⚙ Настройки
+      <button class="footer-btn settings-btn" onclick={() => showSettings = true} title={$t("settings")}>
+        ⚙ {$t("settings")}
       </button>
     </div>
   </aside>
@@ -700,11 +731,11 @@
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
             <path d="M9 10a3 3 0 0 0 6 0V7" />
           </svg>
-          <h2>Ваша локальная машина времени активна</h2>
-          <p>Undoit в реальном времени сохраняет снимки при каждом изменении файлов, сжимает их алгоритмом Zstandard и строит наглядный Diff.</p>
+          <h2>{$locale === 'ru' ? 'Ваша локальная машина времени активна' : 'Your local time machine is active'}</h2>
+          <p>{$t("appSubtitle")}</p>
           <div class="hero-actions">
             <button class="btn-primary" onclick={() => { showSettings = true; settingsTab = 'folders'; }}>
-              + Добавить папку для отслеживания
+              + {$t("addFolder")}
             </button>
           </div>
         </div>
@@ -713,19 +744,19 @@
           <div class="stats-grid">
             <div class="stat-card">
               <div class="stat-value">{stats.total_files}</div>
-              <div class="stat-label">Отслеживаемых файлов</div>
+              <div class="stat-label">{$t("trackedFilesCount")}</div>
             </div>
             <div class="stat-card">
               <div class="stat-value">{stats.total_versions}</div>
-              <div class="stat-label">Сохраненных снимков</div>
+              <div class="stat-label">{$t("totalVersionsCount")}</div>
             </div>
             <div class="stat-card highlight">
               <div class="stat-value">{stats.saved_ratio.toFixed(0)}%</div>
-              <div class="stat-label">Экономия диска (Zstd)</div>
+              <div class="stat-label">{$t("statsSavings")} (Zstd)</div>
             </div>
             <div class="stat-card">
               <div class="stat-value">{formatBytes(stats.total_compressed_bytes)}</div>
-              <div class="stat-label">Занято в хранилище</div>
+              <div class="stat-label">{$locale === 'ru' ? 'Занято в хранилище' : 'Storage used'}</div>
             </div>
           </div>
         {/if}
@@ -740,17 +771,17 @@
             <p class="file-path" title={selectedFile.original_path}>{selectedFile.original_path}</p>
           </div>
           <div class="header-actions">
-            <button class="btn-ghost" onclick={openInExplorer} title="Показать файл в проводнике Windows">
-              📁 В проводнике
+            <button class="btn-ghost" onclick={openInExplorer} title={$locale === 'ru' ? "Показать файл в проводнике Windows" : "Show file in Windows Explorer"}>
+              📁 {$locale === 'ru' ? 'В проводнике' : 'In Explorer'}
             </button>
-            <button class="btn-ghost" onclick={openInExternalApp} disabled={!currentVersion} title="Открыть эту версию во внешней программе (Word, Acrobat, Illustrator...)">
-              👁 В приложении
+            <button class="btn-ghost" onclick={openInExternalApp} disabled={!currentVersion} title={$t("openExternalTooltip")}>
+              👁 {$t("openExternal")}
             </button>
-            <button class="btn-ghost" onclick={saveVersionAs} disabled={!currentVersion} title="Экспортировать эту версию в новый файл">
-              💾 Экспорт
+            <button class="btn-ghost" onclick={saveVersionAs} disabled={!currentVersion} title={$locale === 'ru' ? "Экспортировать эту версию в новый файл" : "Export this snapshot to a new file"}>
+              💾 {$locale === 'ru' ? 'Экспорт' : 'Export'}
             </button>
-            <button class="btn-ghost danger" onclick={deleteCurrentFileFromTracking} title="Удалить файл и все версии из истории">
-              🗑 Удалить
+            <button class="btn-ghost danger" onclick={deleteCurrentFileFromTracking} title={$locale === 'ru' ? "Удалить файл и все версии из истории" : "Remove file and all versions from history"}>
+              🗑 {$locale === 'ru' ? 'Удалить' : 'Delete'}
             </button>
             <button
               class="btn-primary"
@@ -758,9 +789,9 @@
               disabled={isRestoring || !currentVersion}
             >
               {#if isRestoring}
-                Восстановление...
+                {$locale === 'ru' ? 'Восстановление...' : 'Restoring...'}
               {:else}
-                ⟲ Восстановить эту версию
+                ⟲ {$t("restore")}
               {/if}
             </button>
           </div>
@@ -770,11 +801,11 @@
         <section class="timeline-bar">
           <div class="timeline-meta">
             <span class="timeline-heading">
-              Снимок #{versions.length - selectedVersionIndex} из {versions.length}
+              {$locale === 'ru' ? `Снимок #${versions.length - selectedVersionIndex} из ${versions.length}` : `Snapshot #${versions.length - selectedVersionIndex} of ${versions.length}`}
             </span>
             {#if currentVersion}
               <span class="timeline-date">
-                {new Date(currentVersion.timestamp).toLocaleString("ru-RU")}
+                {new Date(currentVersion.timestamp).toLocaleString($locale === 'ru' ? "ru-RU" : "en-US")}
                 <small>({formatRelativeDate(currentVersion.timestamp)})</small>
               </span>
               <span class="timeline-size">
@@ -795,8 +826,8 @@
               class="scrubber-slider"
             />
             <div class="scrubber-ticks">
-              <span>← Новейшая</span>
-              <span>Самая ранняя →</span>
+              <span>{$locale === 'ru' ? '← Новейшая' : '← Newest'}</span>
+              <span>{$locale === 'ru' ? 'Самая ранняя →' : 'Oldest →'}</span>
             </div>
           </div>
         </section>
@@ -810,11 +841,11 @@
               onclick={() => { activeTab = "diff"; loadVersionPreview(selectedVersionIndex); }}
             >
               {#if isVisualDocument(selectedFile.filename)}
-                🖼 Визуальное сравнение
+                🖼 {$locale === 'ru' ? 'Визуальное сравнение' : 'Visual Diff'}
               {:else if isDocx(selectedFile.filename)}
-                📝 Изменения в Word (Diff)
+                📝 {$locale === 'ru' ? 'Изменения в Word (Diff)' : 'Word Changes (Diff)'}
               {:else}
-                Diff (Изменения)
+                Diff ({$locale === 'ru' ? 'Изменения' : 'Changes'})
               {/if}
             </button>
             <button
@@ -823,11 +854,11 @@
               onclick={() => { activeTab = "content"; loadVersionPreview(selectedVersionIndex); }}
             >
               {#if isVisualDocument(selectedFile.filename)}
-                👁 Просмотр снимка
+                👁 {$locale === 'ru' ? 'Просмотр снимка' : 'Snapshot Preview'}
               {:else if isDocx(selectedFile.filename)}
-                📄 Текст документа
+                📄 {$locale === 'ru' ? 'Текст документа' : 'Document Text'}
               {:else}
-                Полный текст версии
+                {$locale === 'ru' ? 'Полный текст версии' : 'Full Snapshot Text'}
               {/if}
             </button>
           </div>
@@ -837,9 +868,9 @@
               {#if isVisualDocument(selectedFile.filename)}
                 {#if isPdfOrAi(selectedFile.filename) && pdfTotalPages > 1}
                   <div class="pdf-page-controls">
-                    <button class="compare-btn" disabled={pdfPage <= 1} onclick={() => changePdfPage(pdfPage - 1)} title="Предыдущая страница">◀</button>
-                    <span class="zoom-level">Стр. {pdfPage} / {pdfTotalPages}</span>
-                    <button class="compare-btn" disabled={pdfPage >= pdfTotalPages} onclick={() => changePdfPage(pdfPage + 1)} title="Следующая страница">▶</button>
+                    <button class="compare-btn" disabled={pdfPage <= 1} onclick={() => changePdfPage(pdfPage - 1)} title={$locale === 'ru' ? "Предыдущая страница" : "Previous page"}>◀</button>
+                    <span class="zoom-level">{$t("page")} {pdfPage} / {pdfTotalPages}</span>
+                    <button class="compare-btn" disabled={pdfPage >= pdfTotalPages} onclick={() => changePdfPage(pdfPage + 1)} title={$locale === 'ru' ? "Следующая страница" : "Next page"}>▶</button>
                   </div>
                 {/if}
 
@@ -848,36 +879,36 @@
                     class="compare-btn"
                     class:active={imageDiffMode === "slider"}
                     onclick={() => imageDiffMode = "slider"}
-                    title="Интерактивная шторка сравнения"
+                    title={$locale === 'ru' ? "Интерактивная шторка сравнения" : "Interactive comparison split slider"}
                   >
-                    ↔ Шторка
+                    ↔ {$locale === 'ru' ? 'Шторка' : 'Split Slider'}
                   </button>
                   <button
                     class="compare-btn"
                     class:active={imageDiffMode === "side-by-side"}
                     onclick={() => imageDiffMode = "side-by-side"}
-                    title="Сравнение рядом"
+                    title={$locale === 'ru' ? "Сравнение рядом" : "Side by side comparison"}
                   >
-                    ◫ Рядом
+                    ◫ {$locale === 'ru' ? 'Рядом' : 'Side by Side'}
                   </button>
                 </div>
               {/if}
 
               <div class="compare-switch">
-                <span class="compare-label">Сравнить с:</span>
+                <span class="compare-label">{$locale === 'ru' ? 'Сравнить с:' : 'Compare with:'}</span>
                 <button
                   class="compare-btn"
                   class:active={compareMode === "current"}
                   onclick={() => { compareMode = "current"; loadVersionPreview(selectedVersionIndex); }}
                 >
-                  Текущим файлом
+                  {$t("diffWithCurrent")}
                 </button>
                 <button
                   class="compare-btn"
                   class:active={compareMode === "previous"}
                   onclick={() => { compareMode = "previous"; loadVersionPreview(selectedVersionIndex); }}
                 >
-                  Предыдущей версией
+                  {$t("diffWithPrevious")}
                 </button>
               </div>
             </div>
@@ -905,7 +936,7 @@
             {#if isImageLoading}
               <div class="image-loading-state">
                 <div class="spinner"></div>
-                <p>Загрузка изображения...</p>
+                <p>{$locale === 'ru' ? 'Загрузка изображения...' : 'Loading image...'}</p>
               </div>
             {:else if activeTab === "diff"}
               <!-- IMAGE DIFF TAB -->
@@ -913,11 +944,11 @@
                 <div class="image-notice-box">
                   <span class="notice-icon">ℹ️</span>
                   <div>
-                    <strong>Нет версии для сравнения</strong>
+                    <strong>{$locale === 'ru' ? 'Нет версии для сравнения' : 'No version to compare'}</strong>
                     <p>
                       {compareMode === "current"
-                        ? "Текущий файл на диске отсутствует или недоступен."
-                        : "Это самая ранняя сохраненная версия файла (предыдущих версий нет)."}
+                        ? ($locale === 'ru' ? "Текущий файл на диске отсутствует или недоступен." : "Current file on disk is missing or inaccessible.")
+                        : ($locale === 'ru' ? "Это самая ранняя сохраненная версия файла (предыдущих версий нет)." : "This is the earliest saved version of the file (no previous versions).")}
                     </p>
                   </div>
                 </div>
@@ -933,7 +964,7 @@
                     <!-- Base image (Compare target: current file or previous version) -->
                     <img
                       src={compareImageDataUrl}
-                      alt="Эталон"
+                      alt={$locale === 'ru' ? 'Эталон' : 'Target'}
                       class="split-img base"
                     />
 
@@ -944,7 +975,7 @@
                     >
                       <img
                         src={versionImageDataUrl}
-                        alt="Выбранная версия"
+                        alt={$locale === 'ru' ? 'Выбранная версия' : 'Selected version'}
                         class="split-img overlay"
                       />
                     </div>
@@ -956,10 +987,10 @@
 
                     <!-- Floating tags -->
                     <div class="split-tag left">
-                      ◀ Снимок #{versions.length - selectedVersionIndex} ({formatBytes(currentVersion?.file_size || 0)})
+                      ◀ {$locale === 'ru' ? `Снимок #${versions.length - selectedVersionIndex}` : `Snapshot #${versions.length - selectedVersionIndex}`} ({formatBytes(currentVersion?.file_size || 0)})
                     </div>
                     <div class="split-tag right">
-                      {compareMode === "current" ? "Текущий на диске" : "Предыдущая версия"} ▶
+                      {compareMode === "current" ? ($locale === 'ru' ? "Текущий на диске" : "Current on disk") : ($locale === 'ru' ? "Предыдущая версия" : "Previous version")} ▶
                     </div>
 
                     <!-- Interactive range slider over entire image -->
@@ -969,7 +1000,7 @@
                       max="100"
                       bind:value={sliderPos}
                       class="split-input-range"
-                      aria-label="Шторка сравнения"
+                      aria-label={$t("splitMode")}
                     />
                   </div>
 
@@ -977,19 +1008,19 @@
                   <div class="slider-presets-bar">
                     <span class="slider-val-badge">{sliderPos}%</span>
                     <button class="preset-btn" class:active={sliderPos === 0} onclick={() => sliderPos = 0}>
-                      0% (Эталон)
+                      0% ({$locale === 'ru' ? 'Эталон' : 'Target'})
                     </button>
                     <button class="preset-btn" class:active={sliderPos === 25} onclick={() => sliderPos = 25}>
                       25%
                     </button>
                     <button class="preset-btn" class:active={sliderPos === 50} onclick={() => sliderPos = 50}>
-                      50% (Пополам)
+                      50% ({$locale === 'ru' ? 'Пополам' : 'Half'})
                     </button>
                     <button class="preset-btn" class:active={sliderPos === 75} onclick={() => sliderPos = 75}>
                       75%
                     </button>
                     <button class="preset-btn" class:active={sliderPos === 100} onclick={() => sliderPos = 100}>
-                      100% (Снимок)
+                      100% ({$locale === 'ru' ? 'Снимок' : 'Snapshot'})
                     </button>
                   </div>
                 </div>
@@ -999,23 +1030,23 @@
                   <div class="side-card">
                     <div class="side-card-header">
                       <span class="side-card-title">
-                        {compareMode === "current" ? "Текущий файл на диске" : "Предыдущая версия"}
+                        {compareMode === "current" ? ($locale === 'ru' ? "Текущий файл на диске" : "Current file on disk") : ($locale === 'ru' ? "Предыдущая версия" : "Previous version")}
                       </span>
                     </div>
                     <div class="side-image-box">
-                      <img src={compareImageDataUrl} alt="Эталон" class="side-img" />
+                      <img src={compareImageDataUrl} alt={$locale === 'ru' ? 'Эталон' : 'Target'} class="side-img" />
                     </div>
                   </div>
 
                   <div class="side-card">
                     <div class="side-card-header">
                       <span class="side-card-title">
-                        Снимок #{versions.length - selectedVersionIndex} ({formatBytes(currentVersion?.file_size || 0)})
+                        {$locale === 'ru' ? `Снимок #${versions.length - selectedVersionIndex}` : `Snapshot #${versions.length - selectedVersionIndex}`} ({formatBytes(currentVersion?.file_size || 0)})
                       </span>
                       <span class="zstd-tag">Zstd: {formatBytes(currentVersion?.compressed_size || 0)}</span>
                     </div>
                     <div class="side-image-box">
-                      <img src={versionImageDataUrl} alt="Выбранная версия" class="side-img" />
+                      <img src={versionImageDataUrl} alt={$locale === 'ru' ? 'Выбранная версия' : 'Selected version'} class="side-img" />
                     </div>
                   </div>
                 </div>
@@ -1035,11 +1066,11 @@
                 </div>
                 {#if currentVersion}
                   <div class="image-info-bar">
-                    <span>Формат: <strong>{selectedFile.filename.split('.').pop()?.toUpperCase()}</strong></span>
-                    <span>Размер: <strong>{formatBytes(currentVersion.file_size)}</strong></span>
-                    <span>В архиве: <strong>{formatBytes(currentVersion.compressed_size)}</strong></span>
+                    <span>{$locale === 'ru' ? 'Формат:' : 'Format:'} <strong>{selectedFile.filename.split('.').pop()?.toUpperCase()}</strong></span>
+                    <span>{$t("fileSize")}: <strong>{formatBytes(currentVersion.file_size)}</strong></span>
+                    <span>{$locale === 'ru' ? 'В архиве:' : 'Compressed:'} <strong>{formatBytes(currentVersion.compressed_size)}</strong></span>
                     <span class="pill-green">
-                      Сжатие: <strong>{(((currentVersion.file_size - currentVersion.compressed_size) / Math.max(1, currentVersion.file_size)) * 100).toFixed(1)}%</strong>
+                      {$locale === 'ru' ? 'Сжатие:' : 'Saved:'} <strong>{(((currentVersion.file_size - currentVersion.compressed_size) / Math.max(1, currentVersion.file_size)) * 100).toFixed(1)}%</strong>
                     </span>
                   </div>
                 {/if}
@@ -1049,25 +1080,25 @@
             <!-- NON-IMAGE BINARY CARD -->
             <div class="binary-card">
               <div class="binary-icon">📦</div>
-              <h3 class="binary-title">Бинарный файл ({selectedFile.filename.split('.').pop()?.toUpperCase() || 'BIN'})</h3>
-              <p class="binary-desc">Данный файл является бинарным. Текстовый построчный diff отключен для предотвращения искажения данных и зависания интерфейса.</p>
+              <h3 class="binary-title">{$locale === 'ru' ? 'Бинарный файл' : 'Binary file'} ({selectedFile.filename.split('.').pop()?.toUpperCase() || 'BIN'})</h3>
+              <p class="binary-desc">{$t("binaryFileDiffNotice")}</p>
               
               <div class="binary-meta-table">
                 <div class="binary-row">
-                  <span class="meta-label">Размер версии:</span>
+                  <span class="meta-label">{$locale === 'ru' ? 'Размер версии:' : 'Version size:'}</span>
                   <span class="meta-val">{formatBytes(currentVersion?.file_size || 0)}</span>
                 </div>
                 <div class="binary-row">
-                  <span class="meta-label">Размер в хранилище (Zstd):</span>
+                  <span class="meta-label">{$locale === 'ru' ? 'Размер в хранилище (Zstd):' : 'Storage size (Zstd):'}</span>
                   <span class="meta-val">{formatBytes(currentVersion?.compressed_size || 0)}</span>
                 </div>
                 <div class="binary-row">
-                  <span class="meta-label">Хэш содержимого (BLAKE3):</span>
+                  <span class="meta-label">{$locale === 'ru' ? 'Хэш содержимого (BLAKE3):' : 'Content hash (BLAKE3):'}</span>
                   <code class="meta-hash">{currentVersion?.hash}</code>
                 </div>
                 <div class="binary-row">
-                  <span class="meta-label">Время создания:</span>
-                  <span class="meta-val">{currentVersion ? new Date(currentVersion.timestamp).toLocaleString("ru-RU") : ""}</span>
+                  <span class="meta-label">{$locale === 'ru' ? 'Время создания:' : 'Creation time:'}</span>
+                  <span class="meta-val">{currentVersion ? new Date(currentVersion.timestamp).toLocaleString($locale === 'ru' ? "ru-RU" : "en-US") : ""}</span>
                 </div>
               </div>
 
@@ -1077,13 +1108,13 @@
                   onclick={restoreSelectedVersion}
                   disabled={isRestoring || !currentVersion}
                 >
-                  ⟲ Восстановить эту версию
+                  ⟲ {$t("restore")}
                 </button>
                 <button class="btn-secondary" onclick={openInExternalApp} disabled={!currentVersion}>
-                  👁 Открыть в приложении...
+                  👁 {$t("openExternal")}
                 </button>
                 <button class="btn-secondary" onclick={saveVersionAs} disabled={!currentVersion}>
-                  💾 Экспортировать как...
+                  💾 {$locale === 'ru' ? 'Экспортировать как...' : 'Export as...'}
                 </button>
               </div>
             </div>
@@ -1092,12 +1123,12 @@
             {#if activeTab === "diff"}
               {#if diff}
                 <div class="diff-header-summary">
-                  <span class="add-badge">+{diff.additions} строк</span>
-                  <span class="del-badge">-{diff.deletions} строк</span>
+                  <span class="add-badge">+{diff.additions} {$locale === 'ru' ? 'строк' : 'lines'}</span>
+                  <span class="del-badge">-{diff.deletions} {$locale === 'ru' ? 'строк' : 'lines'}</span>
                   {#if isDocx(selectedFile.filename)}
                     <div class="docx-info-banner">
                       <span class="docx-badge">DOCX</span>
-                      <span>Документ Word: сравнение текста параграфов</span>
+                      <span>{$locale === 'ru' ? 'Документ Word: сравнение текста параграфов' : 'Word Document: comparing paragraph text'}</span>
                     </div>
                   {/if}
                 </div>
@@ -1117,7 +1148,7 @@
                 {#if isDocx(selectedFile.filename)}
                   <div class="docx-info-banner-content">
                     <span class="docx-badge">DOCX</span>
-                    <span>Извлеченный текст документа Word</span>
+                    <span>{$locale === 'ru' ? 'Извлеченный текст документа Word' : 'Extracted Word document text'}</span>
                   </div>
                 {/if}
                 <pre class="code-block">{textContent}</pre>
@@ -1148,8 +1179,8 @@
       onclick={e => e.stopPropagation()}
     >
       <div class="modal-header">
-        <h2 id="settings-heading">Настройки Undoit</h2>
-        <button class="close-btn" onclick={() => showSettings = false} aria-label="Закрыть">✕</button>
+        <h2 id="settings-heading">{$t("settingsHeading")}</h2>
+        <button class="close-btn" onclick={() => showSettings = false} aria-label={$locale === 'ru' ? 'Закрыть' : 'Close'}>✕</button>
       </div>
 
       <!-- Settings Tabs Navigation -->
@@ -1159,56 +1190,56 @@
           class:active={settingsTab === 'folders'}
           onclick={() => settingsTab = 'folders'}
         >
-          📁 Папки ({watchedFolders.length})
+          📁 {$t("foldersTab")} ({watchedFolders.length})
         </button>
         <button
           class="modal-nav-btn"
           class:active={settingsTab === 'retention'}
           onclick={() => settingsTab = 'retention'}
         >
-          ⏳ Хранение и лимиты
+          ⏳ {$t("retentionTab")}
         </button>
         <button
           class="modal-nav-btn"
           class:active={settingsTab === 'ignores'}
           onclick={() => settingsTab = 'ignores'}
         >
-          🚫 Исключения ({settings.ignore_patterns.length})
+          🚫 {$t("ignoresTab")} ({settings.ignore_patterns.length})
         </button>
         <button
           class="modal-nav-btn"
           class:active={settingsTab === 'system'}
           onclick={() => settingsTab = 'system'}
         >
-          ⚙️ Система
+          ⚙️ {$t("systemTab")}
         </button>
       </div>
 
       <div class="modal-body">
         {#if settingsTab === 'folders'}
           <section class="settings-section">
-            <h3>Отслеживаемые папки</h3>
-            <p class="section-desc">Любые изменения файлов внутри этих папок будут автоматически и мгновенно сохраняться в историю.</p>
+            <h3>{$t("watchedFoldersHeading")}</h3>
+            <p class="section-desc">{$t("watchedFoldersDesc")}</p>
 
             <div class="add-folder-row">
               <input
                 type="text"
-                placeholder="Путь к папке..."
+                placeholder={$t("folderPathPlaceholder")}
                 bind:value={newFolderPath}
                 class="settings-input"
               />
-              <button class="btn-secondary" onclick={browseFolder}>Обзор...</button>
-              <button class="btn-primary" onclick={addFolder}>+ Добавить</button>
+              <button class="btn-secondary" onclick={browseFolder}>{$t("browse")}</button>
+              <button class="btn-primary" onclick={addFolder}>{$t("addFolder")}</button>
             </div>
 
             <div class="folders-list">
               {#if watchedFolders.length === 0}
-                <div class="empty-hint">Нет добавленных папок. Нажмите «Обзор...», чтобы выбрать папку проекта.</div>
+                <div class="empty-hint">{$t("noFoldersHint")}</div>
               {:else}
                 {#each watchedFolders as folder}
                   <div class="folder-row">
                     <span class="folder-path" title={folder.path}>📁 {folder.path}</span>
-                    <button class="remove-btn" onclick={() => removeFolder(folder.id, folder.path)} title="Удалить из отслеживания">🗑</button>
+                    <button class="remove-btn" onclick={() => removeFolder(folder.id, folder.path)} title={$t("removeFromWatching")}>🗑</button>
                   </div>
                 {/each}
               {/if}
@@ -1217,12 +1248,12 @@
 
         {:else if settingsTab === 'retention'}
           <section class="settings-section">
-            <h3>Политика хранения снимков</h3>
-            <p class="section-desc">Настройте автоматическую очистку старых версий для экономии дискового пространства.</p>
+            <h3>{$t("retentionHeading")}</h3>
+            <p class="section-desc">{$t("retentionDesc")}</p>
 
             <div class="form-grid">
               <label class="form-field">
-                <span class="field-label">Срок хранения версий (дней):</span>
+                <span class="field-label">{$t("retentionDaysLabel")}</span>
                 <input
                   type="number"
                   min="0"
@@ -1230,11 +1261,11 @@
                   onchange={saveAppSettings}
                   class="settings-input number-input"
                 />
-                <small class="field-hint">0 = бессрочно (не удалять по возрасту)</small>
+                <small class="field-hint">{$t("retentionDaysHint")}</small>
               </label>
 
               <label class="form-field">
-                <span class="field-label">Макс. версий на один файл:</span>
+                <span class="field-label">{$t("maxVersionsLabel")}</span>
                 <input
                   type="number"
                   min="0"
@@ -1242,41 +1273,41 @@
                   onchange={saveAppSettings}
                   class="settings-input number-input"
                 />
-                <small class="field-hint">0 = без ограничений количества</small>
+                <small class="field-hint">{$t("maxVersionsHint")}</small>
               </label>
             </div>
 
             <div class="prune-box">
               <div class="prune-info">
-                <h4>Ручная очистка хранилища</h4>
-                <p>Применяет правила очистки и удаляет неиспользуемые сжатые объекты с диска.</p>
+                <h4>{$t("manualPruneHeading")}</h4>
+                <p>{$t("manualPruneDesc")}</p>
               </div>
               <button class="btn-secondary" onclick={runStoragePrune} disabled={isPruning}>
-                {isPruning ? "Очистка..." : "🧹 Очистить старые версии"}
+                {isPruning ? $t("cleaning") : $t("cleanOldVersions")}
               </button>
             </div>
           </section>
 
         {:else if settingsTab === 'ignores'}
           <section class="settings-section">
-            <h3>Игнорируемые файлы и папки</h3>
-            <p class="section-desc">Шаблоны путей и расширений, которые Undoit не будет сохранять в историю.</p>
+            <h3>{$t("ignoreHeading")}</h3>
+            <p class="section-desc">{$t("ignoreDesc")}</p>
 
             <div class="add-folder-row">
               <input
                 type="text"
-                placeholder="Шаблон, например: *.log или dist"
+                placeholder={$t("ignorePatternPlaceholder")}
                 bind:value={newIgnorePattern}
                 class="settings-input"
               />
-              <button class="btn-primary" onclick={addIgnorePattern}>Добавить правило</button>
+              <button class="btn-primary" onclick={addIgnorePattern}>{$t("addRule")}</button>
             </div>
 
             <div class="tags-container">
               {#each settings.ignore_patterns as pattern}
                 <span class="tag-pill">
                   {pattern}
-                  <button class="tag-remove" onclick={() => removeIgnorePattern(pattern)} title="Удалить">✕</button>
+                  <button class="tag-remove" onclick={() => removeIgnorePattern(pattern)} title={$locale === 'ru' ? 'Удалить' : 'Remove'}>✕</button>
                 </span>
               {/each}
             </div>
@@ -1284,12 +1315,27 @@
 
         {:else if settingsTab === 'system'}
           <section class="settings-section">
-            <h3>Системные параметры</h3>
+            <h3>{$t("systemHeading")}</h3>
 
             <div class="toggle-row">
               <div class="toggle-info">
-                <strong>Автозапуск при входе в Windows</strong>
-                <p>Запускать Undoit автоматически в фоновом режиме (в трей) при включении компьютера.</p>
+                <strong>{$t("languageTitle")}</strong>
+                <p>{$t("languageDesc")}</p>
+              </div>
+              <select
+                bind:value={settings.language}
+                onchange={handleLanguageChange}
+                class="settings-select"
+              >
+                <option value="ru">Русский (RU)</option>
+                <option value="en">English (EN)</option>
+              </select>
+            </div>
+
+            <div class="toggle-row">
+              <div class="toggle-info">
+                <strong>{$t("autostartTitle")}</strong>
+                <p>{$t("autostartDesc")}</p>
               </div>
               <input
                 type="checkbox"
@@ -1301,8 +1347,8 @@
 
             <div class="toggle-row">
               <div class="toggle-info">
-                <strong>Интеграция в контекстное меню Проводника Windows</strong>
-                <p>Добавляет пункт «История версий Undoit» при нажатии правой кнопкой мыши на любой файл или папку в Проводнике.</p>
+                <strong>{$t("explorerMenuTitle")}</strong>
+                <p>{$t("explorerMenuDesc")}</p>
               </div>
               <input
                 type="checkbox"
@@ -1314,16 +1360,16 @@
 
             <div class="toggle-row">
               <div class="toggle-info">
-                <strong>Тема оформления</strong>
-                <p>Выберите цветовой стиль интерфейса.</p>
+                <strong>{$t("themeTitle")}</strong>
+                <p>{$t("themeDesc")}</p>
               </div>
               <select
                 bind:value={settings.theme}
                 onchange={saveAppSettings}
                 class="settings-select"
               >
-                <option value="dark">Тёмная (Dark Slate)</option>
-                <option value="light">Светлая (Clean Light)</option>
+                <option value="dark">{$t("themeDark")}</option>
+                <option value="light">{$t("themeLight")}</option>
               </select>
             </div>
           </section>
@@ -1331,19 +1377,19 @@
 
         {#if stats}
           <section class="settings-section stats-summary">
-            <h3>Статистика хранилища</h3>
+            <h3>{$t("storageStatsHeading")}</h3>
             <div class="stats-pills">
-              <span>Снимков: <strong>{stats.total_versions}</strong></span>
-              <span>Оригинал: <strong>{formatBytes(stats.total_original_bytes)}</strong></span>
-              <span>Zstd: <strong>{formatBytes(stats.total_compressed_bytes)}</strong></span>
-              <span class="pill-green">Экономия: <strong>{stats.saved_ratio.toFixed(1)}%</strong></span>
+              <span>{$t("statsVersions")}: <strong>{stats.total_versions}</strong></span>
+              <span>{$t("statsOriginal")}: <strong>{formatBytes(stats.total_original_bytes)}</strong></span>
+              <span>{$t("statsCompressed")}: <strong>{formatBytes(stats.total_compressed_bytes)}</strong></span>
+              <span class="pill-green">{$t("statsSavings")}: <strong>{stats.saved_ratio.toFixed(1)}%</strong></span>
             </div>
           </section>
         {/if}
       </div>
 
       <div class="modal-footer">
-        <button class="btn-primary" onclick={() => showSettings = false}>Закрыть</button>
+        <button class="btn-primary" onclick={() => showSettings = false}>{$locale === 'ru' ? 'Закрыть' : 'Close'}</button>
       </div>
     </div>
   </div>
