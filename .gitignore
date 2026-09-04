@@ -26,3 +26,10 @@ UndoitData/
 # IDEs
 .vscode/
 .idea/
+
+# Flutter & Dart
+website/.dart_tool/
+website/build/
+website/.flutter-plugins
+website/.flutter-plugins-dependencies
+website/.packages

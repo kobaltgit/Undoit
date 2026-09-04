@@ -1,0 +1,569 @@
+import 'package:flutter/material.dart';
+import '../theme.dart';
+
+class InteractiveDiffDemo extends StatefulWidget {
+  const InteractiveDiffDemo({super.key});
+
+  @override
+  State<InteractiveDiffDemo> createState() => _InteractiveDiffDemoState();
+}
+
+class _InteractiveDiffDemoState extends State<InteractiveDiffDemo> {
+  double _splitRatio = 0.52; // 0.0 to 1.0
+  int _selectedDemoIndex = 0; // 0: PDF, 1: Illustrator, 2: Code
+
+  final List<String> _demoTitles = [
+    '📄 Договор_окончательный.pdf',
+    '🎨 Брендбук_знак.ai',
+    '⚡ engine_core.rs',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isDesktop = screenWidth > 860;
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: 24,
+        vertical: isDesktop ? 60 : 30,
+      ),
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1050),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Section Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                ),
+                child: const Text(
+                  'ИНТЕРАКТИВНОЕ ДЕМО',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primary,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Попробуйте Visual Split-Diff прямо сейчас',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                  letterSpacing: -0.8,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Потяните вертикальный ползунок влево или вправо, чтобы мгновенно увидеть правки в дизайне или верстке.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 28),
+
+              // File Tabs Selector
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(_demoTitles.length, (index) {
+                    final isSelected = _selectedDemoIndex == index;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      child: ChoiceChip(
+                        label: Text(_demoTitles[index]),
+                        selected: isSelected,
+                        onSelected: (val) {
+                          if (val) setState(() => _selectedDemoIndex = index);
+                        },
+                        selectedColor: AppColors.primary.withValues(alpha: 0.2),
+                        backgroundColor: AppColors.surface,
+                        side: BorderSide(
+                          color: isSelected
+                              ? AppColors.primary
+                              : AppColors.surfaceBorder,
+                        ),
+                        labelStyle: TextStyle(
+                          color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          fontSize: 13,
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Interactive Diff Window Frame
+              Container(
+                height: isDesktop ? 480 : 380,
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.surfaceBorder, width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.5),
+                      blurRadius: 30,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(15),
+                  child: Column(
+                    children: [
+                      // Window Top Bar
+                      Container(
+                        height: 42,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        color: const Color(0xFF0C101A),
+                        child: Row(
+                          children: [
+                            const Row(
+                              children: [
+                                _MacDot(color: Color(0xFFEF4444)),
+                                SizedBox(width: 6),
+                                _MacDot(color: Color(0xFFF59E0B)),
+                                SizedBox(width: 6),
+                                _MacDot(color: Color(0xFF10B981)),
+                              ],
+                            ),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: AppColors.surfaceBorder),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.compare_arrows_rounded, size: 14, color: AppColors.primary),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Сплит: ${(_splitRatio * 100).toInt()}%',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Spacer(),
+                            const Text(
+                              'Undoit v2.0',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textMuted,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Canvas / Diff Workspace
+                      Expanded(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final width = constraints.maxWidth;
+                            final height = constraints.maxHeight;
+                            final splitX = width * _splitRatio;
+
+                            return Stack(
+                              children: [
+                                // Layer 1: "Current" or "New" Version (Underneath)
+                                Positioned.fill(
+                                  child: _buildRightSideContent(),
+                                ),
+
+                                // Layer 2: "Old" Version (Clipped to left of split)
+                                Positioned(
+                                  top: 0,
+                                  left: 0,
+                                  bottom: 0,
+                                  width: splitX,
+                                  child: ClipRect(
+                                    child: OverflowBox(
+                                      alignment: Alignment.topLeft,
+                                      maxWidth: width,
+                                      maxHeight: height,
+                                      minWidth: width,
+                                      minHeight: height,
+                                      child: _buildLeftSideContent(),
+                                    ),
+                                  ),
+                                ),
+
+                                // Vertical Divider Line & Draggable Handle
+                                Positioned(
+                                  top: 0,
+                                  bottom: 0,
+                                  left: splitX - 16,
+                                  width: 32,
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.translucent,
+                                    onHorizontalDragUpdate: (details) {
+                                      setState(() {
+                                        _splitRatio = ((splitX + details.delta.dx) / width)
+                                            .clamp(0.05, 0.95);
+                                      });
+                                    },
+                                    child: Center(
+                                      child: Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          // Vertical Line
+                                          Container(
+                                            width: 3,
+                                            height: double.infinity,
+                                            decoration: BoxDecoration(
+                                              color: AppColors.primary,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: AppColors.primary.withValues(alpha: 0.8),
+                                                  blurRadius: 8,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          // Handle Knob
+                                          Container(
+                                            width: 32,
+                                            height: 32,
+                                            decoration: BoxDecoration(
+                                              color: AppColors.primary,
+                                              shape: BoxShape.circle,
+                                              border: Border.all(color: Colors.white, width: 2),
+                                              boxShadow: const [
+                                                BoxShadow(
+                                                  color: Colors.black45,
+                                                  blurRadius: 6,
+                                                ),
+                                              ],
+                                            ),
+                                            child: const Icon(
+                                              Icons.unfold_more_rounded,
+                                              color: Color(0xFF07090E),
+                                              size: 18,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                                // Floating Labels: "Старая версия" and "Новая версия"
+                                Positioned(
+                                  top: 12,
+                                  left: 12,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withValues(alpha: 0.7),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: AppColors.surfaceBorder),
+                                    ),
+                                    child: const Text(
+                                      '◄ Версия #1 (Вчера 17:40)',
+                                      style: TextStyle(
+                                        color: AppColors.textSecondary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 12,
+                                  right: 12,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.5)),
+                                    ),
+                                    child: const Text(
+                                      'Версия #2 (Сегодня 11:20) ►',
+                                      style: TextStyle(
+                                        color: AppColors.primary,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Left Side (Old)
+  Widget _buildLeftSideContent() {
+    switch (_selectedDemoIndex) {
+      case 0: // PDF Document
+        return _buildDocContent(
+          title: 'ДОГОВОР ОКАЗАНИЯ УСЛУГ',
+          status: 'Черновик (v1.0)',
+          statusColor: AppColors.accentAmber,
+          clauseText: '1.2. Стоимость работ составляет 85 000 руб. Срок выполнения: 45 рабочих дней.\n1.3. Авансовый платёж: не предусмотрен.',
+          stampOpacity: 0.0,
+        );
+      case 1: // Illustrator Design
+        return _buildDesignContent(
+          accentColor: const Color(0xFF6366F1),
+          title: 'PROTOTYPE V1',
+          showGrid: true,
+          elementCount: 2,
+        );
+      default: // Code
+        return _buildCodeContent(isOld: true);
+    }
+  }
+
+  // Right Side (New)
+  Widget _buildRightSideContent() {
+    switch (_selectedDemoIndex) {
+      case 0: // PDF Document
+        return _buildDocContent(
+          title: 'ДОГОВОР ОКАЗАНИЯ УСЛУГ',
+          status: 'Утверждён (v2.0)',
+          statusColor: AppColors.accentGreen,
+          clauseText: '1.2. Стоимость работ составляет 120 000 руб. Срок выполнения: 20 рабочих дней.\n1.3. Авансовый платёж: 50% в течение 3 банковских дней.',
+          stampOpacity: 0.9,
+        );
+      case 1: // Illustrator Design
+        return _buildDesignContent(
+          accentColor: const Color(0xFF06B6D4),
+          title: 'FINAL LOGO V2',
+          showGrid: false,
+          elementCount: 4,
+        );
+      default: // Code
+        return _buildCodeContent(isOld: false);
+    }
+  }
+
+  Widget _buildDocContent({
+    required String title,
+    required String status,
+    required Color statusColor,
+    required String clauseText,
+    required double stampOpacity,
+  }) {
+    return Container(
+      color: const Color(0xFF1E2433),
+      padding: const EdgeInsets.all(32),
+      child: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.5,
+                      color: Colors.white,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: statusColor.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: statusColor),
+                    ),
+                    child: Text(
+                      status,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: statusColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(color: Colors.white24, height: 28),
+              const Text(
+                '1. ПРЕДМЕТ ДОГОВОРА',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white70, fontSize: 13),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                clauseText,
+                style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.6),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                '2. ОТВЕТСТВЕННОСТЬ СТОРОН\nЗа нарушение сроков исполнитель выплачивает неустойку в размере 0.1% от суммы договора за каждый день просрочки.',
+                style: TextStyle(color: Colors.white60, fontSize: 12, height: 1.5),
+              ),
+            ],
+          ),
+          if (stampOpacity > 0)
+            Positioned(
+              right: 20,
+              bottom: 20,
+              child: Opacity(
+                opacity: stampOpacity,
+                child: Transform.rotate(
+                  angle: -0.2,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppColors.accentGreen, width: 2.5),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Text(
+                      'СОГЛАСОВАНО\nUNDOIТ 2.0',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.accentGreen,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesignContent({
+    required Color accentColor,
+    required String title,
+    required bool showGrid,
+    required int elementCount,
+  }) {
+    return Container(
+      color: const Color(0xFF0F172A),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 110,
+              height: 110,
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(elementCount > 2 ? 32 : 12),
+                border: Border.all(color: accentColor, width: 3),
+                boxShadow: [
+                  BoxShadow(
+                    color: accentColor.withValues(alpha: 0.4),
+                    blurRadius: 24,
+                  ),
+                ],
+              ),
+              child: Icon(
+                elementCount > 2 ? Icons.verified_rounded : Icons.crop_square_rounded,
+                color: accentColor,
+                size: 54,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: accentColor,
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              showGrid ? 'Векторные направляющие включены' : 'Отрендерено с оптимизацией кривых',
+              style: const TextStyle(fontSize: 12, color: Colors.white54),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCodeContent({required bool isOld}) {
+    return Container(
+      color: const Color(0xFF0D1117),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '// src-tauri/src/storage.rs',
+            style: TextStyle(color: Colors.white38, fontSize: 12, fontFamily: 'monospace'),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            isOld
+                ? 'pub fn save_version(data: &[u8]) -> Result<String> {\n    // Старый медленный алгоритм\n    let hash = md5::compute(data);\n    let compressed = gzip::compress(data)?;\n    fs::write(path, compressed)?;\n    Ok(hash)\n}'
+                : 'pub fn save_version(data: &[u8]) -> Result<String> {\n    // Undoit 2.0: BLAKE3 + Zstandard\n    let hash = blake3::hash(data).to_hex();\n    let compressed = zstd::encode_all(data, 3)?;\n    db::insert_version(&hash, &compressed)?;\n    Ok(hash.to_string())\n}',
+            style: TextStyle(
+              color: isOld ? const Color(0xFFF87171) : const Color(0xFF4ADE80),
+              fontSize: 13,
+              height: 1.6,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MacDot extends StatelessWidget {
+  final Color color;
+  const _MacDot({required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+      ),
+    );
+  }
+}

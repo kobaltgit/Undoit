@@ -10,6 +10,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/version-2.0.0-blue.svg" alt="Version 2.0" />
+  <a href="https://kobaltgit.github.io/Undoit/"><img src="https://img.shields.io/badge/Website-Live_Demo-38bdf8.svg?logo=flutter" alt="Live Website" /></a>
   <img src="https://img.shields.io/badge/Rust-Tauri_v2-orange.svg" alt="Tauri v2" />
   <img src="https://img.shields.io/badge/Frontend-Svelte_5-ff3e00.svg" alt="Svelte 5" />
   <img src="https://img.shields.io/badge/Platform-Windows_10%2F11-0078d7.svg" alt="Windows" />
