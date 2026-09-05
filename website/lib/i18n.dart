@@ -21,8 +21,8 @@ class S {
 
   // Hero Section
   static String get heroBadge => isRu
-      ? 'Undoit 2.1.0 Релиз доступен — Полная поддержка RU/EN, Rust & Tauri'
-      : 'Undoit 2.1.0 Release Available — Bilingual RU/EN, Rust & Tauri';
+      ? 'Undoit 2.1.1 Релиз доступен — Иерархия папок, Полная поддержка RU/EN'
+      : 'Undoit 2.1.1 Release Available — Folder Tree View, Bilingual RU/EN';
   static String get heroTitle => isRu
       ? 'Локальная машина времени\nдля ваших файлов на Windows'
       : 'Local Time Machine\nfor your Windows files';

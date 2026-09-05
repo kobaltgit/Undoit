@@ -328,6 +328,17 @@ impl Storage {
             fs::create_dir_all(parent)?;
         }
 
+        // If target file exists and is read-only, clear read-only flag so it can be overwritten
+        if target_path.exists() {
+            if let Ok(metadata) = fs::metadata(target_path) {
+                if metadata.permissions().readonly() {
+                    let mut perms = metadata.permissions();
+                    perms.set_readonly(false);
+                    let _ = fs::set_permissions(target_path, perms);
+                }
+            }
+        }
+
         let temp_target = target_path.with_extension("undoit_restore_tmp");
         {
             let mut f = File::create(&temp_target)?;
@@ -335,8 +346,14 @@ impl Storage {
             f.flush()?;
         }
 
-        fs::rename(&temp_target, target_path)?;
-        Ok(())
+        match fs::rename(&temp_target, target_path) {
+            Ok(_) => Ok(()),
+            Err(e) => {
+                // Ensure temp file is cleaned up if rename fails (e.g. target locked by Word)
+                let _ = fs::remove_file(&temp_target);
+                Err(e)
+            }
+        }
     }
 
     pub fn prune_unreferenced_objects(&self, active_hashes: &HashSet<String>) -> std::io::Result<usize> {
@@ -363,7 +380,6 @@ impl Storage {
     }
 
     pub fn export_version_to_temp(&self, hash: &str, original_filename: &str) -> std::io::Result<PathBuf> {
-        let bytes = self.read_version_bytes(hash)?;
         let temp_dir = std::env::temp_dir().join("undoit_preview");
         fs::create_dir_all(&temp_dir)?;
 
@@ -371,7 +387,21 @@ impl Storage {
         let sanitized_name = original_filename.replace(['/', '\\', ':', '*', '?', '"', '<', '>', '|'], "_");
         let temp_file = temp_dir.join(format!("{}_{}", hash_prefix, sanitized_name));
 
+        if temp_file.exists() {
+            // Already exported and immutable for this hash. Return immediately without re-writing.
+            return Ok(temp_file);
+        }
+
+        let bytes = self.read_version_bytes(hash)?;
         fs::write(&temp_file, &bytes)?;
+
+        // Safety: mark historical snapshot as read-only so editors don't silently save to %TEMP%
+        if let Ok(metadata) = fs::metadata(&temp_file) {
+            let mut perms = metadata.permissions();
+            perms.set_readonly(true);
+            let _ = fs::set_permissions(&temp_file, perms);
+        }
+
         Ok(temp_file)
     }
 }

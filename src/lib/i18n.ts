@@ -35,6 +35,11 @@ export const translations = {
     totalVersionsCount: 'версий в БД',
     fileVersions: 'версий',
     never: 'никогда',
+    treeView: 'Дерево',
+    listView: 'Список',
+    expandAll: 'Развернуть всё',
+    collapseAll: 'Свернуть всё',
+    otherFiles: 'Другие файлы',
 
     // File Details & Actions
     currentVersion: 'Текущий файл на диске',
@@ -131,6 +136,8 @@ export const translations = {
     settingsSaveError: 'Ошибка сохранения настроек',
     restoreSuccess: 'Версия успешно восстановлена!',
     restoreError: 'Ошибка при восстановлении версии',
+    restoreFileLocked: 'Файл заблокирован другой программой',
+    restoreFileLockedDesc: 'Файл открыт и заблокирован другой программой (например, Word, Excel или текстовым редактором).\n\nПожалуйста, закройте документ в редакторе и повторите восстановление.',
     openedInExternal: 'Открыто во внешнем приложении',
     contextMenuAdded: 'Пункт в контекстном меню Проводника добавлен',
     contextMenuRemoved: 'Пункт удален из Проводника',
@@ -171,6 +178,11 @@ export const translations = {
     totalVersionsCount: 'versions in DB',
     fileVersions: 'versions',
     never: 'never',
+    treeView: 'Tree',
+    listView: 'List',
+    expandAll: 'Expand all',
+    collapseAll: 'Collapse all',
+    otherFiles: 'Other files',
 
     // File Details & Actions
     currentVersion: 'Current file on disk',
@@ -267,6 +279,8 @@ export const translations = {
     settingsSaveError: 'Failed to save preferences',
     restoreSuccess: 'Version restored successfully!',
     restoreError: 'Failed to restore version',
+    restoreFileLocked: 'File is locked by another program',
+    restoreFileLockedDesc: 'The file is currently open and locked by another program (e.g. Word, Excel, or a text editor).\n\nPlease close the document in your editor and try restoring again.',
     openedInExternal: 'Opened in external application',
     contextMenuAdded: 'Explorer context menu item added',
     contextMenuRemoved: 'Explorer context menu item removed',

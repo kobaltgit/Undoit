@@ -1,9 +1,7 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_dispatch:
 
 jobs:
   release:
@@ -48,21 +46,23 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: 'Undoit v__VERSION__'
           releaseBody: |
-            # 🚀 Undoit v2.1.0 — Полная двуязычность / Full Bilingual (RU & EN)
+            # 🚀 Undoit v2.1.1 — Иерархия папок и файлов / Folder Tree View
 
-            ### 🇷🇺 Что нового в версии 2.1.0:
-            * **Полная локализация (Русский / Английский)**: мгновенное переключение языка интерфейса в окне «Настройки» («Система») и в системном трее Windows.
-            * **Динамический системный трей**: названия пунктов меню трея («Открыть Undoit», «Приостановить отслеживание», «Выход») и подсказка иконки на лету переключаются на выбранный язык.
-            * **Новый интерактивный промо-сайт на Flutter Web**: запущен двуязычный лендинг со сверхчувствительным сплит-диффом макетов, договоров и кода, таблицей сравнения с v1.x и ответами на частые вопросы.
-            * **Полировка стабильности**: оптимизирована автомиграция локальной базы данных SQLite и снижено потребление памяти.
+            ### 🇷🇺 Что нового в версии 2.1.1:
+            * **Иерархический файловый обозреватель (Tree View)**: файловый список теперь отображает точную древовидную структуру папок и подпапок отслеживаемых каталогов.
+            * **Гибкое управление узлами**: папки по умолчанию компактно закрыты, с сохранением состояния раскрытия; быстрые кнопки «Развернуть всё» и «Свернуть всё».
+            * **Умный поиск по дереву**: при вводе запроса папки с совпадениями автоматически раскрываются.
+            * **Два режима отображения**: мгновенное переключение между «Дерево» (структура каталогов) и «Список» (плоский хронологический список недавних файлов).
+            * **Ручное управление релизами**: отключена автокомпиляция при пуше тегов, сборка запускается только по вызову.
 
             ---
 
-            ### 🇬🇧 What's new in version 2.1.0:
-            * **Full Bilingual Support (Russian / English)**: dynamic language toggle in Preferences ("System" tab) and in the Windows system tray menu.
-            * **Dynamic System Tray**: menu items ("Open Undoit", "Pause Monitoring", "Exit") and tooltip reactively adapt to your chosen locale.
-            * **New Interactive Flutter Web Website**: live bilingual landing site with high-sensitivity split diff for designs, documents, and code.
-            * **Stability Enhancements**: safe SQLite database auto-migrations and minimal memory footprint (< 25 MB RAM).
+            ### 🇬🇧 What's new in version 2.1.1:
+            * **Folder Tree View**: the file explorer now mirrors the exact nested folder hierarchy of watched directories.
+            * **Smart Node Management**: folders are collapsed by default with state persistence; quick "Expand all" and "Collapse all" controls.
+            * **Search Auto-Expansion**: matching search queries automatically expand relevant parent folders.
+            * **Dual Display Modes**: seamless toggle between "Tree" view and "List" (flat chronological) view.
+            * **Manual Release Builds**: disabled automated tag compilation, builds are triggered on demand.
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}

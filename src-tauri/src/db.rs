@@ -218,8 +218,25 @@ impl Database {
         Ok(conn.last_insert_rowid())
     }
 
-    pub fn remove_watched_folder(&self, id: i64) -> Result<()> {
+    pub fn remove_watched_folder_and_files(&self, id: i64, folder_path: &str) -> Result<()> {
         let conn = self.get_connection()?;
+        let path_clean_win = folder_path.replace('/', "\\").trim_end_matches('\\').to_string();
+        let prefix_win = format!("{}\\%", path_clean_win);
+        let path_clean_fwd = folder_path.replace('\\', "/").trim_end_matches('/').to_string();
+        let prefix_fwd = format!("{}/%", path_clean_fwd);
+
+        // Delete all tracked_files belonging to this folder.
+        // Due to ON DELETE CASCADE on versions.file_id, all their versions are automatically deleted!
+        conn.execute(
+            "DELETE FROM tracked_files 
+             WHERE folder_id = ?1 
+                OR original_path LIKE ?2 
+                OR original_path LIKE ?3
+                OR original_path = ?4
+                OR original_path = ?5",
+            params![id, prefix_win, prefix_fwd, path_clean_win, path_clean_fwd],
+        )?;
+
         conn.execute("DELETE FROM watched_folders WHERE id = ?1", params![id])?;
         Ok(())
     }

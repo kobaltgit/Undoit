@@ -11,6 +11,13 @@
     renderPdfToDataUrl
   } from "$lib/pdfRenderer";
   import { t, locale, setLocale, type Locale } from "$lib/i18n";
+  import {
+    buildFileTree,
+    filterTree,
+    getAllFolderIds,
+    normalizePath,
+    type TreeNode
+  } from "$lib/treeUtils";
 
   interface TrackedFile {
     id: number;
@@ -72,6 +79,8 @@
   }
 
   let files = $state<TrackedFile[]>([]);
+  let fileViewMode = $state<"tree" | "flat">("tree");
+  let expandedFolders = $state<Set<string>>(new Set());
   let selectedFile = $state<TrackedFile | null>(null);
   let versions = $state<FileVersion[]>([]);
   let selectedVersionIndex = $state<number>(0);
@@ -132,6 +141,80 @@
       f.original_path.toLowerCase().includes(searchQuery.toLowerCase())
     )
   );
+
+  let rawFileTree = $derived(
+    buildFileTree(files, watchedFolders, $t("otherFiles"))
+  );
+
+  let treeFilterResult = $derived(
+    filterTree(rawFileTree, searchQuery)
+  );
+
+  let displayTree = $derived(treeFilterResult.nodes);
+
+  let effectiveExpandedFolders = $derived(
+    searchQuery.trim()
+      ? new Set([...expandedFolders, ...treeFilterResult.autoExpandIds])
+      : expandedFolders
+  );
+
+  function toggleFolder(folderId: string) {
+    const next = new Set(expandedFolders);
+    if (next.has(folderId)) {
+      next.delete(folderId);
+    } else {
+      next.add(folderId);
+    }
+    expandedFolders = next;
+    try {
+      localStorage.setItem("undoit_expanded_folders", JSON.stringify(Array.from(next)));
+    } catch {}
+  }
+
+  function expandAllFolders() {
+    const allIds = getAllFolderIds(displayTree);
+    expandedFolders = new Set(allIds);
+    try {
+      localStorage.setItem("undoit_expanded_folders", JSON.stringify(allIds));
+    } catch {}
+  }
+
+  function collapseAllFolders() {
+    expandedFolders = new Set();
+    try {
+      localStorage.setItem("undoit_expanded_folders", "[]");
+    } catch {}
+  }
+
+  function setFileViewMode(mode: "tree" | "flat") {
+    fileViewMode = mode;
+    try {
+      localStorage.setItem("undoit_file_view_mode", mode);
+    } catch {}
+  }
+
+  function expandAncestorsForFile(file: TrackedFile) {
+    const normFilePath = normalizePath(file.original_path).toLowerCase();
+    const toAdd: string[] = [];
+    function scan(nodes: TreeNode[]) {
+      for (const n of nodes) {
+        if (n.type === "folder") {
+          if (n.id === "folder:__other__" || normFilePath.startsWith(n.path.toLowerCase() + "/")) {
+            toAdd.push(n.id);
+            scan(n.children);
+          }
+        }
+      }
+    }
+    scan(rawFileTree);
+    if (toAdd.length > 0) {
+      const next = new Set([...expandedFolders, ...toAdd]);
+      expandedFolders = next;
+      try {
+        localStorage.setItem("undoit_expanded_folders", JSON.stringify(Array.from(next)));
+      } catch {}
+    }
+  }
 
   let currentVersion = $derived(
     versions.length > 0 && selectedVersionIndex >= 0 && selectedVersionIndex < versions.length
@@ -260,6 +343,7 @@
 
   async function selectFile(file: TrackedFile) {
     selectedFile = file;
+    expandAncestorsForFile(file);
     selectedVersionIndex = 0;
     pdfPage = 1;
     pdfTotalPages = 1;
@@ -282,10 +366,22 @@
   async function openInExternalApp() {
     if (!currentVersion || !selectedFile) return;
     try {
-      await invoke("open_version_in_external_app", { versionId: currentVersion.id });
-      showToast(`Открыто во внешнем приложении: ${selectedFile.filename}`);
+      const isLatest = selectedVersionIndex === 0;
+      const res: any = await invoke("open_version_in_external_app", {
+        versionId: currentVersion.id,
+        openCurrentIfLatest: isLatest
+      });
+      if (res && res.is_working_file) {
+        showToast($locale === "ru"
+          ? `Открыт рабочий файл: ${selectedFile.filename} (изменения отслеживаются)`
+          : `Opened working file: ${selectedFile.filename} (changes are tracked)`);
+      } else {
+        alert($locale === "ru"
+          ? `⚠️ Внимание: открыт архивный снимок только для чтения.\n\nПравки в этом файле не изменят рабочий документ на диске.\nЧтобы редактировать и продолжить работу с этой версией, используйте кнопку «⟲ Восстановить».`
+          : `⚠️ Note: historical snapshot opened as read-only.\n\nEdits will not overwrite your working document on disk.\nTo continue working with this version, click "⟲ Restore".`);
+      }
     } catch (e) {
-      alert("Ошибка открытия во внешнем приложении: " + e);
+      alert(($locale === "ru" ? "Ошибка открытия во внешнем приложении: " : "Error opening in external app: ") + e);
     }
   }
 
@@ -390,8 +486,15 @@
       await loadFiles();
       await loadStats();
       if (selectedFile) await selectFile(selectedFile);
-    } catch (e) {
-      alert($t("restoreError") + ": " + e);
+    } catch (e: any) {
+      const errStr = String(e);
+      if (errStr.includes("FILE_LOCKED")) {
+        alert($locale === "ru"
+          ? `⚠️ Не удалось восстановить файл:\n"${selectedFile.filename}"\n\nФайл открыт и заблокирован другой программой (например, Word, Excel или текстовым редактором).\n\nПожалуйста, закройте документ в редакторе и нажмите «Восстановить» снова.`
+          : `⚠️ Could not restore file:\n"${selectedFile.filename}"\n\nThe file is currently open and locked by another application (e.g. Word, Excel, or a text editor).\n\nPlease close the document in your editor and try restoring again.`);
+      } else {
+        alert($t("restoreError") + ": " + e);
+      }
     } finally {
       isRestoring = false;
     }
@@ -415,8 +518,15 @@
         });
         showToast($locale === "ru" ? "Снимок успешно сохранен в файл" : "Snapshot saved to file successfully");
       }
-    } catch (e) {
-      alert(($locale === "ru" ? "Ошибка сохранения: " : "Save error: ") + e);
+    } catch (e: any) {
+      const errStr = String(e);
+      if (errStr.includes("FILE_LOCKED")) {
+        alert($locale === "ru"
+          ? `⚠️ Не удалось сохранить файл:\nФайл заблокирован другой программой. Пожалуйста, закройте его в редакторе или укажите другое имя.`
+          : `⚠️ Failed to save file:\nThe file is locked by another program. Please close it or specify a different filename.`);
+      } else {
+        alert(($locale === "ru" ? "Ошибка сохранения: " : "Save error: ") + e);
+      }
     }
   }
 
@@ -494,15 +604,27 @@
 
   async function removeFolder(id: number, path: string) {
     const confirmMsg = $locale === "ru"
-      ? `Перестать отслеживать изменения в папке "${path}"?`
-      : `Stop watching changes in folder "${path}"?`;
+      ? `Удалить папку "${path}" из отслеживаемых и стереть её историю файлов из Undoit?`
+      : `Remove folder "${path}" from watching and erase its files and history from Undoit?`;
     if (!confirm(confirmMsg)) return;
     try {
       await invoke("remove_watched_folder", { id, path });
+      if (selectedFile) {
+        const normSelected = normalizePath(selectedFile.original_path).toLowerCase();
+        const normFolder = normalizePath(path).toLowerCase();
+        if (normSelected.startsWith(normFolder + "/") || normSelected === normFolder) {
+          selectedFile = null;
+          versions = [];
+          diff = null;
+          textContent = "";
+        }
+      }
       await loadWatchedFolders();
+      await loadFiles();
+      await loadStats();
       showToast($t("folderRemoved"));
     } catch (e) {
-      console.error(e);
+      alert(($locale === "ru" ? "Ошибка удаления папки: " : "Error removing folder: ") + e);
     }
   }
 
@@ -544,6 +666,17 @@
   }
 
   onMount(() => {
+    try {
+      const savedExpanded = localStorage.getItem("undoit_expanded_folders");
+      if (savedExpanded) {
+        expandedFolders = new Set(JSON.parse(savedExpanded));
+      }
+      const savedMode = localStorage.getItem("undoit_file_view_mode");
+      if (savedMode === "tree" || savedMode === "flat") {
+        fileViewMode = savedMode;
+      }
+    } catch {}
+
     loadSettings();
     loadFiles();
     loadStats();
@@ -651,7 +784,7 @@
         </svg>
         <div class="logo-text">
           <span class="logo-title">Undoit</span>
-          <span class="logo-badge">v2.1</span>
+          <span class="logo-badge">v2.1.1</span>
         </div>
       </div>
       <div class="status-indicator" class:paused={isPaused} title={isPaused ? $t("monitoringPaused") : $t("monitoringActive")}>
@@ -670,43 +803,183 @@
       />
     </div>
 
-    <!-- Files list -->
-    <div class="files-list">
-      {#if filteredFiles.length === 0}
-        <div class="empty-files">
-          <p>{$t("noFilesFound")}</p>
-          <small>{$locale === 'ru' ? 'Добавьте папку в Настройках ⚙' : 'Add a folder in Settings ⚙'}</small>
+    <!-- View mode toggle & tree actions -->
+    <div class="view-toggle-bar">
+      <div class="view-mode-tabs">
+        <button
+          class="view-mode-btn"
+          class:active={fileViewMode === "tree"}
+          onclick={() => setFileViewMode("tree")}
+          title={$t("treeView")}
+        >
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 4h6v6H4zM14 14h6v6h-6zM7 10v4a2 2 0 0 0 2 2h5" />
+          </svg>
+          <span>{$t("treeView")}</span>
+        </button>
+        <button
+          class="view-mode-btn"
+          class:active={fileViewMode === "flat"}
+          onclick={() => setFileViewMode("flat")}
+          title={$t("listView")}
+        >
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="8" y1="6" x2="21" y2="6" />
+            <line x1="8" y1="12" x2="21" y2="12" />
+            <line x1="8" y1="18" x2="21" y2="18" />
+            <line x1="3" y1="6" x2="3.01" y2="6" />
+            <line x1="3" y1="12" x2="3.01" y2="12" />
+            <line x1="3" y1="18" x2="3.01" y2="18" />
+          </svg>
+          <span>{$t("listView")}</span>
+        </button>
+      </div>
+
+      {#if fileViewMode === "tree"}
+        <div class="tree-quick-actions">
+          <button class="tree-action-btn" onclick={expandAllFolders} title={$t("expandAll")}>
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="7 13 12 18 17 13" />
+              <polyline points="7 6 12 11 17 6" />
+            </svg>
+          </button>
+          <button class="tree-action-btn" onclick={collapseAllFolders} title={$t("collapseAll")}>
+            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="7 11 12 6 17 11" />
+              <polyline points="7 18 12 13 17 18" />
+            </svg>
+          </button>
         </div>
-      {:else}
-        {#each filteredFiles as file}
+      {/if}
+    </div>
+
+    <!-- Recursive Svelte 5 snippet for rendering tree nodes -->
+    {#snippet renderTreeNode(node: TreeNode)}
+      {#if node.type === "folder"}
+        {@const isExpanded = effectiveExpandedFolders.has(node.id)}
+        <div class="tree-folder-group" style="--depth: {node.depth}">
           <button
-            class="file-item"
-            class:active={selectedFile?.id === file.id}
-            onclick={() => selectFile(file)}
+            class="tree-folder-header"
+            class:is-root={node.isWatchedRoot}
+            onclick={() => toggleFolder(node.id)}
+            title={node.path}
           >
-            <div class="file-icon" class:is-img={isImage(file.filename)}>
-              {#if isImage(file.filename)}
-                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                  <circle cx="8.5" cy="8.5" r="1.5" />
-                  <polyline points="21 15 16 10 5 21" />
+            <span class="folder-chevron" class:expanded={isExpanded}>
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </span>
+            <span class="folder-icon" class:is-expanded={isExpanded}>
+              {#if isExpanded}
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                  <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z" opacity="0.4"/>
+                  <path d="M20 18H4V8h16v10z"/>
                 </svg>
               {:else}
-                <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+                  <path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/>
                 </svg>
               {/if}
-            </div>
-            <div class="file-info">
-              <span class="file-name">{file.filename}</span>
-              <span class="file-time">{formatRelativeDate(file.updated_at)}</span>
-            </div>
-            <div class="version-badge" title={$t("fileVersions")}>
-              {file.version_count}
-            </div>
+            </span>
+            <span class="folder-name" title={node.path}>{node.name}</span>
+            <span class="folder-counts" title="{node.fileCount} {$locale === 'ru' ? 'файлов' : 'files'}, {node.versionCount} {$t('fileVersions')}">
+              {node.fileCount}
+            </span>
           </button>
-        {/each}
+
+          {#if isExpanded}
+            <div class="tree-folder-children">
+              {#each node.children as child (child.id)}
+                {@render renderTreeNode(child)}
+              {/each}
+            </div>
+          {/if}
+        </div>
+      {:else if node.file}
+        <button
+          class="file-item tree-file-item"
+          class:active={selectedFile?.id === node.file.id}
+          style="--depth: {node.depth}"
+          onclick={() => selectFile(node.file!)}
+          title={node.file.original_path}
+        >
+          <div class="file-icon" class:is-img={isImage(node.file.filename)}>
+            {#if isImage(node.file.filename)}
+              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+            {:else}
+              <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" fill="none" stroke-width="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+            {/if}
+          </div>
+          <div class="file-info">
+            <span class="file-name">{node.file.filename}</span>
+            <span class="file-time">{formatRelativeDate(node.file.updated_at)}</span>
+          </div>
+          <div class="version-badge" title={$t("fileVersions")}>
+            {node.file.version_count}
+          </div>
+        </button>
+      {/if}
+    {/snippet}
+
+    <!-- Files list / Tree View -->
+    <div class="files-list">
+      {#if fileViewMode === "tree"}
+        {#if displayTree.length === 0}
+          <div class="empty-files">
+            <p>{$t("noFilesFound")}</p>
+            <small>{$locale === 'ru' ? 'Добавьте папку в Настройках ⚙' : 'Add a folder in Settings ⚙'}</small>
+          </div>
+        {:else}
+          <div class="tree-container">
+            {#each displayTree as rootNode (rootNode.id)}
+              {@render renderTreeNode(rootNode)}
+            {/each}
+          </div>
+        {/if}
+      {:else}
+        {#if filteredFiles.length === 0}
+          <div class="empty-files">
+            <p>{$t("noFilesFound")}</p>
+            <small>{$locale === 'ru' ? 'Добавьте папку в Настройках ⚙' : 'Add a folder in Settings ⚙'}</small>
+          </div>
+        {:else}
+          {#each filteredFiles as file (file.id)}
+            <button
+              class="file-item"
+              class:active={selectedFile?.id === file.id}
+              onclick={() => selectFile(file)}
+            >
+              <div class="file-icon" class:is-img={isImage(file.filename)}>
+                {#if isImage(file.filename)}
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                  </svg>
+                {:else}
+                  <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" fill="none" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                {/if}
+              </div>
+              <div class="file-info">
+                <span class="file-name">{file.filename}</span>
+                <span class="file-time">{formatRelativeDate(file.updated_at)}</span>
+              </div>
+              <div class="version-badge" title={$t("fileVersions")}>
+                {file.version_count}
+              </div>
+            </button>
+          {/each}
+        {/if}
       {/if}
     </div>
 
@@ -1550,6 +1823,195 @@
 
   .search-input:focus {
     border-color: var(--accent);
+  }
+
+  /* VIEW TOGGLE BAR */
+  .view-toggle-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-panel);
+    gap: 8px;
+  }
+
+  .view-mode-tabs {
+    display: inline-flex;
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .view-mode-btn {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .view-mode-btn:hover {
+    color: var(--text-main);
+  }
+
+  .view-mode-btn.active {
+    background: var(--bg-subtle);
+    color: var(--text-main);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  }
+
+  .tree-quick-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .tree-action-btn {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0;
+  }
+
+  .tree-action-btn:hover {
+    color: var(--text-main);
+    background: var(--bg-hover);
+    border-color: var(--accent);
+  }
+
+  /* TREE VIEW STYLES */
+  .tree-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .tree-folder-group {
+    position: relative;
+  }
+
+  .tree-folder-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px 6px calc(6px + var(--depth, 0) * 14px);
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    color: var(--text-main);
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s;
+    font-family: inherit;
+  }
+
+  .tree-folder-header:hover {
+    background: var(--bg-hover);
+  }
+
+  .tree-folder-header.is-root {
+    font-weight: 600;
+    color: var(--text-main);
+  }
+
+  .folder-chevron {
+    width: 14px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: transform 0.15s ease;
+    flex-shrink: 0;
+  }
+
+  .folder-chevron.expanded {
+    transform: rotate(90deg);
+  }
+
+  .folder-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #eab308;
+    flex-shrink: 0;
+  }
+
+  .folder-icon.is-expanded {
+    color: #f59e0b;
+  }
+
+  .folder-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .folder-counts {
+    font-size: 10px;
+    background: var(--bg-main);
+    color: var(--text-muted);
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+
+  .tree-folder-children {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .tree-folder-children::before {
+    content: "";
+    position: absolute;
+    left: calc(12px + var(--depth, 0) * 14px);
+    top: 2px;
+    bottom: 4px;
+    width: 1px;
+    background: var(--border-color);
+    opacity: 0.4;
+    pointer-events: none;
+  }
+
+  .file-item.tree-file-item {
+    padding: 5px 8px 5px calc(6px + var(--depth, 0) * 14px + 14px);
+    gap: 8px;
+    margin-bottom: 1px;
+    border-radius: 6px;
+  }
+
+  .file-item.tree-file-item .file-name {
+    font-size: 12px;
+  }
+
+  .file-item.tree-file-item .file-time {
+    font-size: 10px;
   }
 
   .files-list {

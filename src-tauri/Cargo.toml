@@ -1,6 +1,6 @@
 [package]
 name = "v2"
-version = "2.1.0"
+version = "2.1.1"
 description = "Undoit - Local Time Machine"
 authors = ["you"]
 edition = "2021"

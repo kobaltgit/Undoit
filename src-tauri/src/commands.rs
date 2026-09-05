@@ -19,8 +19,15 @@ pub fn get_tracked_files(state: State<AppState>) -> Result<Vec<TrackedFile>, Str
 }
 
 #[tauri::command]
-pub fn delete_tracked_file(file_id: i64, state: State<AppState>) -> Result<(), String> {
-    state.db.delete_tracked_file(file_id).map_err(|e| e.to_string())
+pub fn delete_tracked_file(file_id: i64, state: State<AppState>, app: tauri::AppHandle) -> Result<(), String> {
+    state.db.delete_tracked_file(file_id).map_err(|e| e.to_string())?;
+
+    if let Ok(active_hashes) = state.db.get_all_active_hashes() {
+        let _ = state.storage.prune_unreferenced_objects(&active_hashes);
+    }
+
+    crate::update_tray_state(&app, "normal");
+    Ok(())
 }
 
 #[tauri::command]
@@ -178,6 +185,17 @@ pub fn get_prev_version_data_url(
     Ok(None)
 }
 
+fn is_file_locked_error(err: &std::io::Error) -> bool {
+    let raw = err.raw_os_error();
+    let msg = err.to_string();
+    raw == Some(5)
+        || raw == Some(32)
+        || raw == Some(33)
+        || msg.contains("used by another process")
+        || msg.contains("Access is denied")
+        || msg.contains("Отказано в доступе")
+}
+
 #[tauri::command]
 pub fn restore_version(version_id: i64, state: State<AppState>) -> Result<(), String> {
     let (version, original_path) = match state.db.get_version_by_id(version_id).map_err(|e| e.to_string())? {
@@ -192,7 +210,12 @@ pub fn restore_version(version_id: i64, state: State<AppState>) -> Result<(), St
         let _ = state.storage.save_file(path);
     }
 
-    state.storage.restore_file(&version.hash, path).map_err(|e| e.to_string())?;
+    if let Err(e) = state.storage.restore_file(&version.hash, path) {
+        if is_file_locked_error(&e) {
+            return Err("FILE_LOCKED".into());
+        }
+        return Err(e.to_string());
+    }
     Ok(())
 }
 
@@ -204,7 +227,12 @@ pub fn save_version_as(version_id: i64, target_path: String, state: State<AppSta
     };
 
     let target = Path::new(&target_path);
-    state.storage.restore_file(&version.hash, target).map_err(|e| e.to_string())?;
+    if let Err(e) = state.storage.restore_file(&version.hash, target) {
+        if is_file_locked_error(&e) {
+            return Err("FILE_LOCKED".into());
+        }
+        return Err(e.to_string());
+    }
     Ok(())
 }
 
@@ -219,17 +247,29 @@ pub fn get_watched_folders(state: State<AppState>) -> Result<Vec<WatchedFolder>,
 }
 
 #[tauri::command]
-pub fn add_watched_folder(path: String, state: State<AppState>) -> Result<i64, String> {
+pub fn add_watched_folder(path: String, state: State<AppState>, app: tauri::AppHandle) -> Result<i64, String> {
     let folder_path = PathBuf::from(&path);
     let id = state.db.add_watched_folder(&path).map_err(|e| e.to_string())?;
     state.watcher.add_folder(folder_path);
+    crate::update_tray_state(&app, "normal");
     Ok(id)
 }
 
 #[tauri::command]
-pub fn remove_watched_folder(id: i64, path: String, state: State<AppState>) -> Result<(), String> {
-    state.db.remove_watched_folder(id).map_err(|e| e.to_string())?;
-    state.watcher.remove_folder(PathBuf::from(path));
+pub fn remove_watched_folder(
+    id: i64,
+    path: String,
+    state: State<AppState>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    state.db.remove_watched_folder_and_files(id, &path).map_err(|e| e.to_string())?;
+    state.watcher.remove_folder(PathBuf::from(&path));
+
+    if let Ok(active_hashes) = state.db.get_all_active_hashes() {
+        let _ = state.storage.prune_unreferenced_objects(&active_hashes);
+    }
+
+    crate::update_tray_state(&app, "normal");
     Ok(())
 }
 
@@ -270,7 +310,7 @@ pub fn set_language(lang: String, state: State<AppState>, app: tauri::AppHandle)
 }
 
 #[tauri::command]
-pub fn prune_storage(state: State<AppState>) -> Result<serde_json::Value, String> {
+pub fn prune_storage(state: State<AppState>, app: tauri::AppHandle) -> Result<serde_json::Value, String> {
     let settings = state.db.get_settings().unwrap_or_default();
     let deleted_versions = state
         .db
@@ -282,6 +322,8 @@ pub fn prune_storage(state: State<AppState>) -> Result<serde_json::Value, String
         .storage
         .prune_unreferenced_objects(&active_hashes)
         .map_err(|e| e.to_string())?;
+
+    crate::update_tray_state(&app, "normal");
 
     Ok(serde_json::json!({
         "deleted_versions": deleted_versions,
@@ -352,30 +394,43 @@ pub fn get_current_file_raw_bytes(path: String) -> Result<Option<Vec<u8>>, Strin
 #[tauri::command]
 pub fn open_version_in_external_app(
     version_id: i64,
+    open_current_if_latest: Option<bool>,
     state: State<AppState>,
-) -> Result<String, String> {
+) -> Result<serde_json::Value, String> {
     let (version, original_path) = match state.db.get_version_by_id(version_id).map_err(|e| e.to_string())? {
         Some(res) => res,
         None => return Err("Версия не найдена".into()),
     };
 
-    let filename = Path::new(&original_path)
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or("document");
+    let p = Path::new(&original_path);
+    let is_latest = match state.db.get_last_version_hash(version.file_id) {
+        Ok(Some(last_hash)) => last_hash == version.hash,
+        _ => false,
+    };
 
-    let temp_path = state
-        .storage
-        .export_version_to_temp(&version.hash, filename)
-        .map_err(|e| e.to_string())?;
+    let should_open_real_file = open_current_if_latest.unwrap_or(false) && is_latest && p.exists();
 
-    let path_str = temp_path.to_string_lossy().to_string();
+    let (target_path_str, is_working_file) = if should_open_real_file {
+        (original_path, true)
+    } else {
+        let filename = p
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("document");
+
+        let temp_path = state
+            .storage
+            .export_version_to_temp(&version.hash, filename)
+            .map_err(|e| e.to_string())?;
+
+        (temp_path.to_string_lossy().to_string(), false)
+    };
 
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
         Command::new("cmd")
-            .raw_arg(format!("/c start \"\" \"{}\"", path_str))
+            .raw_arg(format!("/c start \"\" \"{}\"", target_path_str))
             .spawn()
             .map_err(|e| format!("Не удалось открыть внешнее приложение: {}", e))?;
     }
@@ -383,11 +438,14 @@ pub fn open_version_in_external_app(
     #[cfg(not(target_os = "windows"))]
     {
         Command::new("open")
-            .arg(&path_str)
+            .arg(&target_path_str)
             .spawn()
             .map_err(|e| format!("Не удалось открыть внешнее приложение: {}", e))?;
     }
 
-    Ok(path_str)
+    Ok(serde_json::json!({
+        "path": target_path_str,
+        "is_working_file": is_working_file
+    }))
 }
 
