@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'i18n.dart';
 import 'theme.dart';
-import 'widgets/navbar.dart';
 import 'widgets/hero_section.dart';
 import 'widgets/interactive_diff_demo.dart';
 import 'widgets/features_grid.dart';
@@ -9,7 +8,7 @@ import 'widgets/comparison_table.dart';
 import 'widgets/supported_formats.dart';
 import 'widgets/faq_section.dart';
 import 'widgets/download_cta.dart';
-import 'widgets/footer.dart';
+import 'package:kobalt_ui/kobalt_ui.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -94,11 +93,32 @@ class _LandingPageState extends State<LandingPage> {
           Column(
             children: [
               // Sticky Navigation Bar
-              NavBar(
-                onFeaturesTap: () => _scrollToKey(_featuresKey),
-                onDiffDemoTap: () => _scrollToKey(_diffDemoKey),
-                onComparisonTap: () => _scrollToKey(_comparisonKey),
-                onFaqTap: () => _scrollToKey(_faqKey),
+              KobaltNavBar(
+                project: KobaltProjectId.undoit,
+                version: 'v2.1.1',
+                isRussian: currentLang.value == AppLang.ru,
+                onLanguageToggle: () {
+                  setAppLanguage(currentLang.value == AppLang.ru ? AppLang.en : AppLang.ru);
+                },
+                accentColor: AppColors.primary,
+                navLinks: [
+                  KobaltNavLink(
+                    label: S.navFeatures,
+                    onTap: () => _scrollToKey(_featuresKey),
+                  ),
+                  KobaltNavLink(
+                    label: S.navDiffDemo,
+                    onTap: () => _scrollToKey(_diffDemoKey),
+                  ),
+                  KobaltNavLink(
+                    label: S.navComparison,
+                    onTap: () => _scrollToKey(_comparisonKey),
+                  ),
+                  KobaltNavLink(
+                    label: S.navFaq,
+                    onTap: () => _scrollToKey(_faqKey),
+                  ),
+                ],
                 onDownloadTap: () => _scrollToKey(_downloadKey),
               ),
 
@@ -133,7 +153,19 @@ class _LandingPageState extends State<LandingPage> {
                         key: _downloadKey,
                         child: DownloadCta(),
                       ),
-                      AppFooter(),
+                      KobaltFooter(
+                        project: KobaltProjectId.undoit,
+                        version: 'v2.1.1',
+                        isRussian: currentLang.value == AppLang.ru,
+                        accentColor: AppColors.primary,
+                        onBackToTop: () {
+                          _scrollController.animateTo(
+                            0,
+                            duration: const Duration(milliseconds: 600),
+                            curve: Curves.easeInOutCubic,
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
